@@ -54,11 +54,43 @@ static inline double frand(PASynth *s) { // 0..1
     return (s->rng & 0xFFFFFF) / 16777216.0;
 }
 
+// ---------- Bo loc "tieng tu phia sau" ----------
+// Can cu am hoc tam ly (dai tan dinh huong): am thanh tu phia sau duoc tai nguoi cam nhan manh hon o
+// ~1 kHz va ~10-12 kHz, yeu hon o ~3-5 kHz. Them tieng u tram 40-80 Hz truyen qua than xe.
+static void biquad_peak(double *k, double sr, double f, double q, double db) {
+    double A = pow(10, db / 40), w = 2 * M_PI * f / sr, al = sin(w) / (2 * q), cw = cos(w);
+    double a0 = 1 + al / A;
+    k[0] = (1 + al * A) / a0; k[1] = -2 * cw / a0; k[2] = (1 - al * A) / a0; k[3] = -2 * cw / a0; k[4] = (1 - al / A) / a0;
+}
+static void biquad_lowshelf(double *k, double sr, double f, double db) {
+    double A = pow(10, db / 40), w = 2 * M_PI * f / sr, cw = cos(w), al = sin(w) / 2 * sqrt(2), sa = 2 * sqrt(A) * al;
+    double a0 = (A + 1) + (A - 1) * cw + sa;
+    k[0] = A * ((A + 1) - (A - 1) * cw + sa) / a0; k[1] = 2 * A * ((A - 1) - (A + 1) * cw) / a0;
+    k[2] = A * ((A + 1) - (A - 1) * cw - sa) / a0; k[3] = -2 * ((A - 1) + (A + 1) * cw) / a0; k[4] = ((A + 1) + (A - 1) * cw - sa) / a0;
+}
+void pa_rear_eq_design(double eq[4][5], double sr, double amt) {
+    biquad_peak(eq[0], sr, 1000, 1.0, 5.0 * amt);      // dai "phia sau" ~1 kHz
+    biquad_peak(eq[1], sr, 4000, 1.2, -7.0 * amt);     // giam dai "phia truoc" 3-5 kHz
+    biquad_peak(eq[2], sr, fmin(11000, sr * 0.42), 1.0, 4.0 * amt);  // dai "phia sau" ~10-12 kHz
+    biquad_lowshelf(eq[3], sr, 70, 4.0 * amt);         // u tram qua than xe
+}
+double pa_rear_eq_gain_db(double eq[4][5], double sr, double freq) {
+    double w = 2 * M_PI * freq / sr, g = 0;
+    for (int i = 0; i < 4; i++) {
+        double *k = eq[i];
+        double nr = k[0] + k[1] * cos(w) + k[2] * cos(2 * w), ni = -(k[1] * sin(w) + k[2] * sin(2 * w));
+        double dr = 1 + k[3] * cos(w) + k[4] * cos(2 * w), di = -(k[3] * sin(w) + k[4] * sin(2 * w));
+        g += 10 * log10((nr * nr + ni * ni) / (dr * dr + di * di));
+    }
+    return g;
+}
+
 void pa_init(PASynth *s) {
     memset(s, 0, sizeof(*s));
     s->volume = 0.7; s->toneAmt = 0.5; s->pops = 1; s->shiftPop = 1;
     s->gpsSpeed = -1; s->gpsAge = 99; s->loadA = 0.2; s->load = 0.2;
     s->rng = 0x9E3779B9u;
+    s->rearAmt = 0.7;
 }
 
 static double learned_cap(PASynth *s, double v) {
@@ -177,8 +209,11 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
     double rpmT = s->rpm, loadT = (s->state == PA_RUNNING) ? s->load : 0.15;
     if (s->state == PA_STARTING && s->stateT > 0.8) loadT = 0.6;
     double rpm0 = s->rpmA, load0 = s->loadA;
-    double toneK = 0.6 + s->toneAmt * 0.9;
-    double tone = s->toneAmt;
+    // Chat tieng theo phong cach lai DA HOC: lai the thao -> gat hon, no pop nhieu hon; lai em -> tram, muot
+    double sport = s->learnOn ? s->learnSport : 0.5;
+    double tone = fmin(1, fmax(0, s->toneAmt + 0.3 * (sport - 0.5)));
+    double toneK = 0.6 + tone * 0.9;
+    double popScale = s->learnOn ? 0.7 + 0.6 * sport : 1.0;
     if (s->bovPending && p->turbo) { s->bov = 1; s->bovPending = 0; }
     if (s->popReq) { s->popEnv = 1; s->popAmp = 0.9 + 0.8 * frand(s); s->popReq = 0; }
 
@@ -208,7 +243,7 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
             if (a > s->env) s->env = a;
             // Xe dien phanh tai sinh lau: no nhieu 1,5 s dau sau khi nha ga, roi thua dan (nhu xe xang that)
             double popFade = s->overT < 1.5 ? 1.0 : (s->overT < 4 ? 0.3 : 0.12);
-            if (over && s->pops && rpmA > 2300 && frand(s) < 0.035 * p->popK * (1 + rpmN) * popFade) {
+            if (over && s->pops && rpmA > 2300 && frand(s) < 0.035 * p->popK * (1 + rpmN) * popFade * popScale) {
                 s->popEnv = 1;
                 s->popAmp = 0.5 + frand(s) * (frand(s) < .15 ? 1.6 : .7);
             }
@@ -264,17 +299,25 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
             }
         }
         if (s->rearFx) {
-            // Tieng tu ong xa phia sau: cat bot tieng rit cao (than xe chan), them vang ngan cua khoang xe
-            // (2 duong tre 7 ms va 13 ms), giam hoi tieng trau phia truoc -> nghe "o sau lung".
-            s->rLp += (o - s->rLp) * 0.22;                     // ~2 kHz
-            s->rLp2 += (s->rLp - s->rLp2) * 0.5;
+            if (s->eqSr != sr || fabs(s->eqAmt - s->rearAmt) > 1e-6) {   // tinh lai he so khi doi tan so lay mau / cuong do
+                pa_rear_eq_design(s->eq, sr, s->rearAmt); s->eqSr = sr; s->eqAmt = s->rearAmt;
+            }
+            double x = o;
+            for (int f = 0; f < 4; f++) {                     // 4 bo loc noi tiep (Direct Form II transposed)
+                double *k = s->eq[f], *z = s->eqz[f];
+                double y = k[0] * x + z[0];
+                z[0] = k[1] * x - k[3] * y + z[1];
+                z[1] = k[2] * x - k[4] * y;
+                x = y;
+            }
+            // phan xa ngan trong khoang xe (7 ms, 13 ms) -> tieng "doi len" tu phia sau
             int n7 = (int)(0.007 * sr), n13 = (int)(0.013 * sr);
             if (n13 > 2000) n13 = 2000;
             double d7 = s->dly[(s->dIdx - n7 + 2048) & 2047], d13 = s->dly[(s->dIdx - n13 + 2048) & 2047];
-            double wet = s->rLp2 * 0.78 + d7 * 0.28 + d13 * 0.20;
-            s->dly[s->dIdx] = (float)(s->rLp2 + d13 * 0.25);
+            double ra = s->rearAmt;
+            s->dly[s->dIdx] = (float)(x + d13 * 0.25);
             s->dIdx = (s->dIdx + 1) & 2047;
-            o = wet * 1.15;
+            o = x * (1 - 0.15 * ra) + d7 * 0.28 * ra + d13 * 0.2 * ra;
         }
         o *= s->master;
         out[i] = (float)tanh(o * 1.2); // gioi han an toan

@@ -42,7 +42,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
         [d registerDefaults:@{ @"enabled": @YES, @"onlyWithCarPlay": @YES, @"preset": @"gt3",
                                @"volume": @0.7, @"tone": @0.5, @"pops": @YES, @"shiftPop": @YES,
-                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES }];
+                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7 }];
         _enabled = [d boolForKey:@"enabled"];
         _onlyWithCarPlay = [d boolForKey:@"onlyWithCarPlay"];
         _presetKey = [d stringForKey:@"preset"] ?: @"gt3";
@@ -56,6 +56,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _rearEffect = [d boolForKey:@"rearFx"];
         _learnEnabled = [d boolForKey:@"learn"];
         _recordEnabled = [d boolForKey:@"record"];
+        _rearAmount = [d doubleForKey:@"rearAmt"];
         [self applySettings];
     }
     return self;
@@ -75,6 +76,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     _synth.shiftPop = _shiftPopEnabled;
     _synth.autoVol = _autoVolume;
     _synth.rearFx = _rearEffect;
+    _synth.rearAmt = _rearAmount;
     PAMotion *mo = _motion;
     mo.speedTrim = _speedTrim;
     mo.learnEnabled = _learnEnabled;
@@ -83,6 +85,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
 }
 
 - (id)motion { return _motion; }
+- (void)setRearAmount:(double)v { _rearAmount = v; [self save:@(v) key:@"rearAmt"]; [self applySettings]; }
 - (void)setRecordEnabled:(BOOL)v { _recordEnabled = v; [self save:@(v) key:@"record"]; [self applySettings]; if (!v) [_motion stopTrip]; }
 - (void)setLearnEnabled:(BOOL)v { _learnEnabled = v; [self save:@(v) key:@"learn"]; [self applySettings]; }
 - (void)setRearEffect:(BOOL)v { _rearEffect = v; [self save:@(v) key:@"rearFx"]; [self applySettings]; }

@@ -20,6 +20,9 @@ echo "== Tu sua khi nap can chinh cu sai 40 do (may bi xoay tren gia)"
 for m in 0 1; do
   "$OUT/fusion" $m 1 1 | tail -3 | tr '\n' ' '; echo; "$OUT/fusion" $m 1 1 > /dev/null || fail=1
 done
+echo "== Bo loc tieng tu phia sau (dap ung tan so)"
+$CC -O2 -Wall -o "$OUT/eq" test/rear_eq_test.c app/PASynth.c -lm
+"$OUT/eq" || fail=1
 echo "== Hoc thich nghi: 2 xe x 2 phong cach lai"
 $CC -O2 -Wall -o "$OUT/learn" test/learn_test.c app/PALearn.c -lm
 "$OUT/learn" || fail=1

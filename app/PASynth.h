@@ -36,7 +36,8 @@ typedef struct {
     volatile double toneAmt;      // 0..1
     volatile int pops, shiftPop;
     volatile int autoVol;
-    volatile int rearFx;
+    volatile int rearFx;          // mo phong tieng truyen tu ong xa phia sau qua khoang xe
+    volatile double rearAmt;      // cuong do cam giac phia sau 0..1
     volatile int learnOn;         // dung ho so xe da hoc (do boc that + phong cach lai)
     volatile double learnCap[5];  // do boc toi da da hoc theo 5 dai toc do (m/s^2)
     volatile double learnSport;   // 0 em .. 1 the thao          // mo phong tieng truyen tu ong xa phia sau qua khoang xe         // tu tang am luong theo toc do (bu tieng gio, tieng lop)
@@ -60,10 +61,14 @@ typedef struct {
     double svfLow[3], svfBand[3], intLow, intBand;
     int cylIdx, popReq, bovPending;
     float dly[2048]; int dIdx; double rLp, rLp2, rHp;
+    double eq[4][5], eqz[4][2], eqSr, eqAmt;   // 4 bo loc tan so (biquad) cho cam giac phia sau
     unsigned int rng;
 } PASynth;
 
 void pa_init(PASynth *s);
+// Tinh he so bo loc 'phia sau' (cong khai de kiem thu dap ung tan so)
+void pa_rear_eq_design(double eq[4][5], double sr, double amt);
+double pa_rear_eq_gain_db(double eq[4][5], double sr, double freq);
 // Tao n mau mono vao out (ghi de). sr = tan so lay mau.
 void pa_render(PASynth *s, float *out, int n, double sr);
 
