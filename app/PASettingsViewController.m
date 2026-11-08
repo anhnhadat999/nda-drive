@@ -3,6 +3,7 @@
 #import "PAUpdater.h"
 #import "PATheme.h"
 #import "PACalibrationViewController.h"
+#import "PALog.h"
 
 typedef NS_ENUM(NSInteger, PASec) { SecSound, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
 
@@ -40,7 +41,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecRun, SecTest, SecStatus, SecUpd
         case SecSound: return 5;
         case SecRun: return 2;
         case SecTest: return 2;
-        case SecStatus: return 2;
+        case SecStatus: return 3;
         case SecUpdate: return 3;
     }
     return 0;
@@ -137,7 +138,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             return [self sliderCell:@"Tốc độ giả lập" value:e.testSpeedKmh max:220 tag:3 detail:[NSString stringWithFormat:@"%.0f km/h", e.testSpeedKmh] enabled:e.testMode];
         case SecStatus:
             if (ip.row == 0) return [self infoCell:@"Vị trí" detail:e.locationStatusText icon:@"location.fill" tappable:YES];
-            return [self infoCell:@"Căn chỉnh cảm biến" detail:e.sensorStatusText icon:@"gyroscope" tappable:YES];
+            if (ip.row == 1) return [self infoCell:@"Căn chỉnh cảm biến" detail:e.sensorStatusText icon:@"gyroscope" tappable:YES];
+            return [self infoCell:@"Gửi nhật ký chẩn đoán" detail:nil icon:@"doc.text.magnifyingglass" tappable:YES];
         case SecUpdate:
             if (ip.row == 0) {
                 NSString *d = u.checking ? @"Đang kiểm tra…" :
@@ -158,6 +160,14 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     if (ip.section == SecStatus && ip.row == 0) {
         [PAEngine.shared requestLocationPermission];
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
+    } else if (ip.section == SecStatus && ip.row == 2) {
+        NSURL *u = PALogFileURL();
+        if (![NSFileManager.defaultManager fileExistsAtPath:u.path]) PALog(@"(nhat ky trong)");
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            UIActivityViewController *av = [[UIActivityViewController alloc] initWithActivityItems:@[PALogFileURL()] applicationActivities:nil];
+            av.popoverPresentationController.sourceView = [tv cellForRowAtIndexPath:ip];
+            [self presentViewController:av animated:YES completion:nil];
+        });
     } else if (ip.section == SecStatus && ip.row == 1) {
         [self.navigationController pushViewController:[PACalibrationViewController new] animated:YES];
     } else if (ip.section == SecUpdate && ip.row == 0) {

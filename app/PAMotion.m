@@ -1,5 +1,6 @@
 #import "PAMotion.h"
 #import <CoreMotion/CoreMotion.h>
+#import "PALog.h"
 
 @implementation PAMotion {
     PASynth *_synth;
@@ -9,6 +10,7 @@
     NSOperationQueue *_q;      // MOT luong duy nhat cho moi phep tinh cua bo loc
     NSUInteger _n;
     BOOL _savedOnce;
+    volatile double _lastImuWall, _lastGpsWall, _prevGpsV, _prevGpsT;
     double _lastSavedTheta;
 }
 
@@ -43,6 +45,19 @@
         self->_savedOnce = has; self->_lastSavedTheta = th;
     }];
 
+    _lastImuWall = _lastGpsWall = NSProcessInfo.processInfo.systemUptime;
+    [self startMotionUpdates];
+    if ([CMAltimeter isRelativeAltitudeAvailable]) {
+        __weak typeof(self) ws = self;
+        [_alt startRelativeAltitudeUpdatesToQueue:_q withHandler:^(CMAltitudeData *d, NSError *err) {
+            typeof(self) ss = ws;
+            if (d && ss) paf_baro(&ss->_f, d.relativeAltitude.doubleValue, d.timestamp);
+        }];
+    }
+    PALog(@"Cam bien: bat dau");
+}
+
+- (void)startMotionUpdates {
     if (_mm.isDeviceMotionAvailable) {
         _mm.deviceMotionUpdateInterval = 0.01; // 100 lan/giay
         __weak typeof(self) ws = self;
@@ -52,18 +67,23 @@
             if (m) [ws handleMotion:m];
         }];
     }
-    if ([CMAltimeter isRelativeAltitudeAvailable]) {
-        __weak typeof(self) ws = self;
-        [_alt startRelativeAltitudeUpdatesToQueue:_q withHandler:^(CMAltitudeData *d, NSError *err) {
-            typeof(self) ss = ws;
-            if (d && ss) paf_baro(&ss->_f, d.relativeAltitude.doubleValue, d.timestamp);
-        }];
-    }
 }
+
+- (void)restartSensors {
+    if (!_running) return;
+    PALog(@"Cam bien: khoi dong lai (im lang %.1f s)", self.imuAge);
+    [_mm stopDeviceMotionUpdates];
+    [self startMotionUpdates];
+}
+
+- (double)imuAge { return NSProcessInfo.processInfo.systemUptime - _lastImuWall; }
+- (double)gpsAge { return NSProcessInfo.processInfo.systemUptime - _lastGpsWall; }
+- (BOOL)gpsOnlyFallback { return _running && self.imuAge > 0.5; }
 
 - (void)stop {
     if (!_running) return;
     _running = NO;
+    PALog(@"Cam bien: tat");
     [_mm stopDeviceMotionUpdates];
     [_alt stopRelativeAltitudeUpdates];
 }
@@ -74,6 +94,7 @@
     double ua[3] = { m.userAcceleration.x * G, m.userAcceleration.y * G, m.userAcceleration.z * G };
     double gr[3] = { m.gravity.x, m.gravity.y, m.gravity.z };
     double rr[3] = { m.rotationRate.x, m.rotationRate.y, m.rotationRate.z };
+    _lastImuWall = NSProcessInfo.processInfo.systemUptime;
     _f.sigScale = _responseScale;
     paf_imu(&_f, ua, gr, rr, m.timestamp);
     double trim = 1.0 + _speedTrim;
@@ -114,6 +135,18 @@
     double acc = loc.speedAccuracy;  // iOS 10+; < 0 neu khong ro
     double course = loc.course;
     _gpsAccuracy = acc; _gpsRawKmh = speed >= 0 ? speed * 3.6 : -1;
+    double nowW = NSProcessInfo.processInfo.systemUptime;
+    _lastGpsWall = nowW;
+    // DU PHONG: cam bien chuyen dong khong gui so lieu (thuong do iOS khi tat man hinh)
+    // -> dua thang toc do GPS vao bo tao am de tieng po van theo xe.
+    if (_feedSynth && speed >= 0 && nowW - _lastImuWall > 0.5) {
+        double v = speed * 3.6 * (1.0 + _speedTrim);
+        if (v < 1.5) v = 0;
+        double dt = tFix - _prevGpsT;
+        double a = (_prevGpsT > 0 && dt > 0.2 && dt < 3) ? (v - _prevGpsV) / dt : 0;
+        _synth->gpsAccel = a; _synth->gpsSpeed = v; _synth->gpsAge = fmax(0, nowW - tFix);
+    }
+    if (speed >= 0) { _prevGpsV = speed * 3.6 * (1.0 + _speedTrim); _prevGpsT = tFix; }
     if (loc.horizontalAccuracy < 0 || loc.horizontalAccuracy > 65) return;
     [_q addOperationWithBlock:^{ paf_gps(&self->_f, speed, acc, course, tFix); }];
 }

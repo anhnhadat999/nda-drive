@@ -31,7 +31,7 @@ typedef NS_ENUM(NSInteger, CalSec) { CSGuide, CSState, CSLive, CSTune, CSReset, 
 - (void)tick {
     NSMutableArray *ips = [NSMutableArray array];
     for (NSInteger r = 0; r < 4; r++) [ips addObject:[NSIndexPath indexPathForRow:r inSection:CSState]];
-    for (NSInteger r = 0; r < 4; r++) [ips addObject:[NSIndexPath indexPathForRow:r inSection:CSLive]];
+    for (NSInteger r = 0; r < 6; r++) [ips addObject:[NSIndexPath indexPathForRow:r inSection:CSLive]];
     [self.tableView reloadRowsAtIndexPaths:ips withRowAnimation:UITableViewRowAnimationNone];
 }
 
@@ -41,7 +41,7 @@ typedef NS_ENUM(NSInteger, CalSec) { CSGuide, CSState, CSLive, CSTune, CSReset, 
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return CSCount; }
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
-    switch (s) { case CSGuide: return 0; case CSState: return 4; case CSLive: return 4; case CSTune: return 2; case CSReset: return 1; }
+    switch (s) { case CSGuide: return 0; case CSState: return 4; case CSLive: return 6; case CSTune: return 2; case CSReset: return 1; }
     return 0;
 }
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s {
@@ -96,7 +96,9 @@ typedef NS_ENUM(NSInteger, CalSec) { CSGuide, CSState, CSLive, CSTune, CSReset, 
             if (ip.row == 0) return [self cell:@"Tốc độ GPS" detail:(on && m.gpsRawKmh >= 0 ? [NSString stringWithFormat:@"%.1f km/h", m.gpsRawKmh] : @"—") color:nil];
             if (ip.row == 1) return [self cell:@"Tốc độ dùng cho tiếng pô" detail:(on ? [NSString stringWithFormat:@"%.1f km/h", m.speedKmh] : @"—") color:PA_AMBER];
             if (ip.row == 2) return [self cell:@"Gia tốc dọc xe" detail:(on ? [NSString stringWithFormat:@"%+.2f m/s²", m.accelMs2] : @"—") color:nil];
-            return [self cell:@"Độ dốc đường" detail:(on ? [NSString stringWithFormat:@"%+.1f%%", m.gradePct] : @"—") color:nil];
+            if (ip.row == 3) return [self cell:@"Độ dốc đường" detail:(on ? [NSString stringWithFormat:@"%+.1f%%", m.gradePct] : @"—") color:nil];
+            if (ip.row == 4) return [self cell:@"GPS cập nhật lần cuối" detail:(on ? [NSString stringWithFormat:@"%.1f s trước", m.gpsAge] : @"—") color:(on && m.gpsAge > 3 ? PA_RED : nil)];
+            return [self cell:@"Cảm biến cập nhật lần cuối" detail:(on ? (m.gpsOnlyFallback ? @"tạm dừng → dùng GPS" : [NSString stringWithFormat:@"%.2f s trước", m.imuAge]) : @"—") color:(on && m.gpsOnlyFallback ? PA_AMBER : nil)];
         case CSTune:
             if (ip.row == 0) {
                 UITableViewCell *c = [self cell:@"" detail:nil color:nil];

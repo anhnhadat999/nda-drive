@@ -20,7 +20,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) double calProgress, mountAngleDeg, gpsAccuracy, gpsRawKmh;
 @property (atomic) double speedTrim;          // hieu chinh toc do: -0.10..+0.10 (khop dong ho xe)
 @property (atomic) double responseScale;      // 0.6 on dinh, 1 can bang, 1.6 nhanh
-- (void)resetCalibration;                     // xoa can chinh da luu, hoc lai tu dau
+- (void)resetCalibration;
+- (void)restartSensors;                       // khoi dong lai cam bien chuyen dong (khi iOS dung gui so lieu)
+@property (nonatomic, readonly) double imuAge, gpsAge;   // so giay ke tu lan nhan so lieu cuoi
+@property (nonatomic, readonly) BOOL gpsOnlyFallback;   // dang dung thang GPS vi cam bien dung                     // xoa can chinh da luu, hoc lai tu dau
 @end
 
 NS_ASSUME_NONNULL_END

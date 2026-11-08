@@ -3,6 +3,7 @@
 #import <CoreLocation/CoreLocation.h>
 #import <UIKit/UIKit.h>
 #import "PAMotion.h"
+#import "PALog.h"
 
 NSString *const PAEngineDidUpdateNotification = @"PAEngineDidUpdateNotification";
 
@@ -21,6 +22,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     PAMotion *_motion;
     BOOL _booted, _routeCarPlay, _tweakCarPlay, _manualRun, _locating;
     BOOL _userOff, _lastCarPlay, _sessionReady, _restarting;
+    double _lastGpsKick, _lastImuKick;
     double _lastFixSpeed, _lastFixAccel, _lastTestSpeed;
     NSTimeInterval _lastFixTime;
     dispatch_source_t _tick;
@@ -108,6 +110,10 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     [nc addObserver:self selector:@selector(routeChanged:) name:AVAudioSessionRouteChangeNotification object:as];
     [nc addObserver:self selector:@selector(interrupted:) name:AVAudioSessionInterruptionNotification object:as];
     [nc addObserver:self selector:@selector(mediaReset:) name:AVAudioSessionMediaServicesWereResetNotification object:as];
+    [nc addObserver:self selector:@selector(didBackground) name:UIApplicationDidEnterBackgroundNotification object:nil];
+    [nc addObserver:self selector:@selector(willForeground) name:UIApplicationWillEnterForegroundNotification object:nil];
+    [nc addObserver:self selector:@selector(protectedDataLocked) name:UIApplicationProtectedDataWillBecomeUnavailable object:nil];
+    PALog(@"Khoi dong app (trang thai %ld)", (long)UIApplication.sharedApplication.applicationState);
 
     CFNotificationCenterRef darwin = CFNotificationCenterGetDarwinNotifyCenter();
     CFNotificationCenterAddObserver(darwin, (__bridge const void *)self, darwinCallback, (__bridge CFStringRef)kNotifyCarPlayOn, NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
@@ -136,6 +142,19 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 }
 
 #pragma mark - Am thanh
+
+- (void)didBackground {
+    PALog(@"App chay nen (tat man hinh / chuyen app). May %@, GPS %@, am thanh %@",
+          _engineOn ? @"dang no" : @"tat", _locating ? @"bat" : @"tat", _audio.isRunning ? @"chay" : @"dung");
+    if (_engineOn) {
+        // iOS de giu GPS chay nen hon khi bat chi bao vi tri nen
+        _lm.allowsBackgroundLocationUpdates = YES;
+        [_lm startUpdatingLocation];
+        [self startAudio];
+    }
+}
+- (void)willForeground { PALog(@"App mo lai (GPS cuoi cach %.1f s, cam bien cuoi cach %.1f s)", _motion.gpsAge, _motion.imuAge); }
+- (void)protectedDataLocked { PALog(@"May khoa man hinh (du lieu bao ve bi khoa)"); }
 
 - (void)configureSession {
     if (_sessionReady) return;
@@ -252,9 +271,11 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         [self startAudio];
         [self startLocation];
         _synth.requestStart = 1;      // tieng de may + no may
+        PALog(@"No may (CarPlay %@)", self.carPlayConnected ? @"co" : @"khong");
     } else if (!shouldRun && _engineOn) {
         _engineOn = NO;
         _synth.requestStop = 1;       // tat may tu tu
+        PALog(@"Tat may");
         [self stopLocationLater];
     }
     if (!_enabled) { [self stopLocation]; [self stopAudio]; }
@@ -269,6 +290,22 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         _lastTestSpeed = v;
         _synth.gpsSpeed = v;
         _synth.gpsAge = 0;
+    }
+    // Canh gac: dang no may ma GPS/cam bien im lang -> khoi dong lai
+    if (_engineOn && _locating && !_testMode) {
+        double now = NSProcessInfo.processInfo.systemUptime;
+        if (_motion.gpsAge > 6 && now - _lastGpsKick > 10) {
+            _lastGpsKick = now;
+            PALog(@"GPS im lang %.0f s -> khoi dong lai", _motion.gpsAge);
+            [_lm stopUpdatingLocation];
+            _lm.allowsBackgroundLocationUpdates = YES;
+            [_lm startUpdatingLocation];
+        }
+        if (_motion.imuAge > 2 && now - _lastImuKick > 10) {
+            _lastImuKick = now;
+            [_motion restartSensors];
+        }
+        if (!_audio.isRunning) { PALog(@"Am thanh dung -> bat lai"); _sessionReady = NO; [self startAudio]; }
     }
     if (_tickCount % 10 == 0) { // moi 2 giay kiem tra lai duong ra am thanh
         BOOL r = [self routeIsCarPlay];
@@ -285,7 +322,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 - (NSString *)sensorStatusText {
     if (!_motion.running) return @"Tắt";
     NSString *cal = _motion.calibrated ? @"đã học hướng xe ✓" : @"đang học hướng xe…";
-    NSString *gps = _motion.gpsOk ? @"GPS tốt" : @"mất GPS (dùng cảm biến)";
+    NSString *gps = _motion.gpsOnlyFallback ? @"cảm biến tạm dừng, dùng GPS" : (_motion.gpsOk ? @"GPS tốt" : @"mất GPS (dùng cảm biến)");
     return [NSString stringWithFormat:@"%@ · %@ · %.0f km/h · dốc %.1f%%", cal, gps, _motion.speedKmh, _motion.gradePct];
 }
 
@@ -305,9 +342,11 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     if (st == kCLAuthorizationStatusNotDetermined) { [_lm requestAlwaysAuthorization]; }
     if (st == kCLAuthorizationStatusAuthorizedAlways || st == kCLAuthorizationStatusAuthorizedWhenInUse) {
         _lm.allowsBackgroundLocationUpdates = YES;
-        _lm.showsBackgroundLocationIndicator = NO;
+        _lm.showsBackgroundLocationIndicator = YES;    // chi bao vi tri nen: iOS uu tien giu GPS
         [_lm startUpdatingLocation];
+        [_lm startMonitoringSignificantLocationChanges]; // lop du phong
         _locating = YES;
+        PALog(@"GPS: bat (quyen %d)", (int)st);
     }
     if (_locating || st == kCLAuthorizationStatusNotDetermined) {
         _motion.feedSynth = !_testMode;
@@ -319,7 +358,9 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     [_motion stop];
     if (!_locating) return;
     [_lm stopUpdatingLocation];
+    [_lm stopMonitoringSignificantLocationChanges];
     _locating = NO;
+    PALog(@"GPS: tat");
     _gpsSpeedKmh = -1;
     _synth.gpsSpeed = -1;
 }
@@ -331,6 +372,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 }
 
 - (void)locationManagerDidChangeAuthorization:(CLLocationManager *)manager {
+    PALog(@"Quyen vi tri doi: %d", (int)manager.authorizationStatus);
     if (_engineOn) [self startLocation];
     [NSNotificationCenter.defaultCenter postNotificationName:PAEngineDidUpdateNotification object:self];
 }
@@ -342,7 +384,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 }
 
 - (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
-    NSLog(@"[NDADrive] Loi GPS: %@", error);
+    PALog(@"Loi GPS: %@", error.localizedDescription);
 }
 
 @end
