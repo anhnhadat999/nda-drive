@@ -35,9 +35,10 @@
     NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
     BOOL has = [d objectForKey:@"cal.theta"] != nil;
     double th = [d doubleForKey:@"cal.theta"];
-    double g[3] = { [d doubleForKey:@"cal.gx"], [d doubleForKey:@"cal.gy"], [d doubleForKey:@"cal.gz"] };
+    double gx = [d doubleForKey:@"cal.gx"], gy = [d doubleForKey:@"cal.gy"], gz = [d doubleForKey:@"cal.gz"];
     [_q addOperationWithBlock:^{
         paf_init(&self->_f);
+        double g[3] = { gx, gy, gz };
         if (has) paf_load_calibration(&self->_f, th, g);   // dung lai can chinh lan truoc neu may van gan dung goc
         self->_savedOnce = has; self->_lastSavedTheta = th;
     }];
