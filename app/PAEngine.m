@@ -42,7 +42,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
         [d registerDefaults:@{ @"enabled": @YES, @"onlyWithCarPlay": @YES, @"preset": @"gt3",
                                @"volume": @0.7, @"tone": @0.5, @"pops": @YES, @"shiftPop": @YES,
-                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1 }];
+                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES }];
         _enabled = [d boolForKey:@"enabled"];
         _onlyWithCarPlay = [d boolForKey:@"onlyWithCarPlay"];
         _presetKey = [d stringForKey:@"preset"] ?: @"gt3";
@@ -53,6 +53,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _autoVolume = [d boolForKey:@"autoVolume"];
         _speedTrim = [d doubleForKey:@"speedTrim"];
         _responseMode = [d integerForKey:@"responseMode"];
+        _rearEffect = [d boolForKey:@"rearFx"];
         [self applySettings];
     }
     return self;
@@ -71,12 +72,14 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     _synth.pops = _popsEnabled;
     _synth.shiftPop = _shiftPopEnabled;
     _synth.autoVol = _autoVolume;
+    _synth.rearFx = _rearEffect;
     PAMotion *mo = _motion;
     mo.speedTrim = _speedTrim;
     mo.responseScale = _responseMode == 0 ? 0.6 : (_responseMode == 2 ? 1.6 : 1.0);
 }
 
 - (id)motion { return _motion; }
+- (void)setRearEffect:(BOOL)v { _rearEffect = v; [self save:@(v) key:@"rearFx"]; [self applySettings]; }
 - (void)setAutoVolume:(BOOL)v { _autoVolume = v; [self save:@(v) key:@"autoVolume"]; [self applySettings]; }
 - (void)setSpeedTrim:(double)v { _speedTrim = v; [self save:@(v) key:@"speedTrim"]; [self applySettings]; }
 - (void)setResponseMode:(NSInteger)v { _responseMode = v; [self save:@(v) key:@"responseMode"]; [self applySettings]; }
@@ -276,8 +279,8 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         _engineOn = NO;
         _synth.requestStop = 1;       // tat may tu tu
         PALog(@"Tat may");
-        [self stopLocationLater];
     }
+    if (_enabled) [self startLocation];          // luon doc GPS + cam bien khi bat po ao (ke ca chua no may, tat man hinh)
     if (!_enabled) { [self stopLocation]; [self stopAudio]; }
     [NSNotificationCenter.defaultCenter postNotificationName:PAEngineDidUpdateNotification object:self];
 }
@@ -292,7 +295,8 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         _synth.gpsAge = 0;
     }
     // Canh gac: dang no may ma GPS/cam bien im lang -> khoi dong lai
-    if (_engineOn && _locating && !_testMode) {
+    if (_tickCount % 5 == 0) [_motion updateRates];
+    if (_locating) {
         double now = NSProcessInfo.processInfo.systemUptime;
         if (_motion.gpsAge > 6 && now - _lastGpsKick > 10) {
             _lastGpsKick = now;
@@ -305,7 +309,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
             _lastImuKick = now;
             [_motion restartSensors];
         }
-        if (!_audio.isRunning) { PALog(@"Am thanh dung -> bat lai"); _sessionReady = NO; [self startAudio]; }
+        if (_enabled && !_audio.isRunning) { PALog(@"Am thanh dung -> bat lai"); _sessionReady = NO; [self startAudio]; }
     }
     if (_tickCount % 10 == 0) { // moi 2 giay kiem tra lai duong ra am thanh
         BOOL r = [self routeIsCarPlay];

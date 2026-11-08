@@ -38,7 +38,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecRun, SecTest, SecStatus, SecUpd
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
-        case SecSound: return 5;
+        case SecSound: return 6;
         case SecRun: return 2;
         case SecTest: return 2;
         case SecStatus: return 3;
@@ -53,7 +53,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecRun, SecTest, SecStatus, SecUpd
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     switch (s) {
-        case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.";
+        case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.\n\"Hiệu ứng tiếng từ phía sau\" làm tiếng trầm và vang như vọng từ ống xả sau xe. Muốn tiếng phát hẳn từ loa sau, chỉnh Fader về phía sau trong cài đặt âm thanh của xe.";
         case SecRun: return @"Bật mục này để xe tự nổ máy mỗi khi iPhone kết nối Apple CarPlay và tắt máy khi ngắt kết nối.";
         case SecTest: return @"Chỉ dùng khi xe đang đỗ. Kéo thanh tốc độ để nghe sang số mà không cần chạy xe.";
         case SecStatus: return @"Gắn iPhone cố định trên giá đỡ. Lần đầu lái, tăng tốc và phanh vài lần để máy tự học hướng xe.";
@@ -129,7 +129,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 1) return [self sliderCell:@"Độ đanh của pô" value:e.toneAmount max:1 tag:2 detail:toneText(e.toneAmount) enabled:YES];
             if (ip.row == 2) return [self switchCell:@"Nổ lụp bụp khi nhả ga" icon:@"flame.fill" on:e.popsEnabled tag:10];
             if (ip.row == 3) return [self switchCell:@"Tiếng \"bụp\" khi lên số" icon:@"arrow.up.circle.fill" on:e.shiftPopEnabled tag:11];
-            return [self switchCell:@"Tự tăng âm lượng theo tốc độ" icon:@"speaker.wave.3.fill" on:e.autoVolume tag:16];
+            if (ip.row == 4) return [self switchCell:@"Tự tăng âm lượng theo tốc độ" icon:@"speaker.wave.3.fill" on:e.autoVolume tag:16];
+            return [self switchCell:@"Hiệu ứng tiếng từ phía sau" icon:@"speaker.wave.2.fill" on:e.rearEffect tag:17];
         case SecRun:
             if (ip.row == 0) return [self switchCell:@"Bật pô ảo" icon:@"power" on:e.enabled tag:12];
             return [self switchCell:@"Tự nổ máy khi kết nối CarPlay" icon:@"car.fill" on:e.onlyWithCarPlay tag:13];
@@ -188,6 +189,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         case 12: e.enabled = s.on; break;
         case 13: e.onlyWithCarPlay = s.on; break;
         case 16: e.autoVolume = s.on; break;
+        case 17: e.rearEffect = s.on; break;
         case 14:
             e.testMode = s.on;
             [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:1 inSection:SecTest]] withRowAnimation:UITableViewRowAnimationNone];

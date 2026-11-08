@@ -2,7 +2,7 @@
 #import <UIKit/UIKit.h>
 
 NSString *const PAUpdaterDidChangeNotification = @"PAUpdaterDidChangeNotification";
-static NSString *const kRepo = @"https://anhnhadat999.github.io/nda-drive/";
+static NSString *const kRepo = @"https://raw.githubusercontent.com/anhnhadat999/nda-drive/gh-pages/";
 static NSString *const kPackageID = @"com.ndarealty.ndadrive";
 
 @implementation PAUpdater

@@ -37,7 +37,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest packages/*.deb --title "NDA Drive – bản mới nhất" --notes "Cài qua Sileo: thêm nguồn https://anhnhadat999.github.io/nda-drive/"
+          gh release create latest packages/*.deb --title "NDA Drive – bản mới nhất" --notes "Cài qua Sileo: thêm nguồn https://raw.githubusercontent.com/anhnhadat999/nda-drive/gh-pages/"
 
       - name: Tao nguon Sileo (kho APT)
         run: |

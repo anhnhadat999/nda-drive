@@ -248,6 +248,19 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
                 o += (nz - s->bovLp) * s->bov * 0.22;
             }
         }
+        if (s->rearFx) {
+            // Tieng tu ong xa phia sau: cat bot tieng rit cao (than xe chan), them vang ngan cua khoang xe
+            // (2 duong tre 7 ms va 13 ms), giam hoi tieng trau phia truoc -> nghe "o sau lung".
+            s->rLp += (o - s->rLp) * 0.22;                     // ~2 kHz
+            s->rLp2 += (s->rLp - s->rLp2) * 0.5;
+            int n7 = (int)(0.007 * sr), n13 = (int)(0.013 * sr);
+            if (n13 > 2000) n13 = 2000;
+            double d7 = s->dly[(s->dIdx - n7 + 2048) & 2047], d13 = s->dly[(s->dIdx - n13 + 2048) & 2047];
+            double wet = s->rLp2 * 0.78 + d7 * 0.28 + d13 * 0.20;
+            s->dly[s->dIdx] = (float)(s->rLp2 + d13 * 0.25);
+            s->dIdx = (s->dIdx + 1) & 2047;
+            o = wet * 1.15;
+        }
         o *= s->master;
         out[i] = (float)tanh(o * 1.2); // gioi han an toan
         s->rpmA = rpmA; s->loadA = loadA;

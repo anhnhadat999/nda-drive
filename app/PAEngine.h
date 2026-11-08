@@ -27,6 +27,7 @@ extern NSString *const PAEngineDidUpdateNotification;
 @property (nonatomic) BOOL popsEnabled;
 @property (nonatomic) BOOL shiftPopEnabled;
 @property (nonatomic) BOOL autoVolume;           // tu tang am luong theo toc do
+@property (nonatomic) BOOL rearEffect;           // hieu ung tieng vong tu phia sau xe
 @property (nonatomic) double speedTrim;          // -0.10..+0.10
 @property (nonatomic) NSInteger responseMode;    // 0 on dinh, 1 can bang, 2 nhanh
 @property (nonatomic, readonly) id motion;       // PAMotion (so lieu can chinh)

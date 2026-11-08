@@ -35,7 +35,8 @@ typedef struct {
     volatile double volume;       // 0..1
     volatile double toneAmt;      // 0..1
     volatile int pops, shiftPop;
-    volatile int autoVol;         // tu tang am luong theo toc do (bu tieng gio, tieng lop)
+    volatile int autoVol;
+    volatile int rearFx;          // mo phong tieng truyen tu ong xa phia sau qua khoang xe         // tu tang am luong theo toc do (bu tieng gio, tieng lop)
     volatile double gpsSpeed;     // km/h, -1 = chua co
     volatile double gpsAccel;     // km/h/s
     volatile double gpsAge;       // giay ke tu ban tin cuoi (luong audio tu cong them)
@@ -55,6 +56,7 @@ typedef struct {
     double whPh, bov, bovLp, noiseLp;
     double svfLow[3], svfBand[3], intLow, intBand;
     int cylIdx, popReq, bovPending;
+    float dly[2048]; int dIdx; double rLp, rLp2, rHp;
     unsigned int rng;
 } PASynth;
 
