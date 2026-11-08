@@ -2,6 +2,7 @@ name: Build NDA Drive
 
 on:
   push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -33,4 +34,38 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest packages/*.deb --title "NDA Drive – bản mới nhất" --notes "Tải tệp .deb trên iPhone, mở bằng Sileo hoặc Filza để cài, rồi Respring."
+          gh release create latest packages/*.deb --title "NDA Drive – bản mới nhất" --notes "Cài qua Sileo: thêm nguồn https://anhnhadat999.github.io/nda-drive/"
+
+      - name: Tao nguon Sileo (kho APT)
+        run: |
+          set -e
+          mkdir -p repo/debs
+          cp packages/*.deb repo/debs/
+          cp repo-static/* repo/ 2>/dev/null || true
+          cd repo
+          dpkg-scanpackages -m debs /dev/null > Packages
+          gzip -k9 Packages
+          bzip2 -k9 Packages
+          {
+            echo "Origin: NDA Drive"
+            echo "Label: NDA Drive"
+            echo "Suite: stable"
+            echo "Version: 1.0"
+            echo "Codename: ios"
+            echo "Architectures: iphoneos-arm64"
+            echo "Components: main"
+            echo "Description: Nguồn cài đặt và cập nhật NDA Drive (pô ảo cho xe)"
+            echo "MD5Sum:"
+            for f in Packages Packages.gz Packages.bz2; do echo " $(md5 -q $f) $(stat -f%z $f) $f"; done
+            echo "SHA256:"
+            for f in Packages Packages.gz Packages.bz2; do echo " $(shasum -a 256 $f | cut -d' ' -f1) $(stat -f%z $f) $f"; done
+          } > Release
+          touch .nojekyll
+          cat Packages
+
+      - name: Dang len GitHub Pages (nhanh gh-pages)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo
+          force_orphan: true
