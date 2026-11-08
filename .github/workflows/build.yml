@@ -1,0 +1,36 @@
+name: Build Po Ao
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cai Theos
+        run: |
+          brew install ldid make xz dpkg
+          git clone --recursive --depth 1 https://github.com/theos/theos.git "$HOME/theos"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+
+      - name: Bien dich goi .deb (rootless cho Dopamine)
+        run: make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: poao-deb
+          path: packages/*.deb
+
+      - name: Dang ban phat hanh "latest"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest packages/*.deb --title "Pô Ảo – bản mới nhất" --notes "Tải tệp .deb trên iPhone, mở bằng Sileo hoặc Filza để cài, rồi Respring."

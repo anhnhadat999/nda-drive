@@ -1,0 +1,9 @@
+Package: com.ndarealty.poao
+Name: Pô Ảo
+Version: 0.1.0
+Architecture: iphoneos-arm
+Description: Giả lập tiếng pô xe thể thao theo tốc độ GPS, tự nổ máy khi kết nối Apple CarPlay.
+Maintainer: NDA Realty
+Author: NDA Realty
+Section: Tweaks
+Depends: mobilesubstrate, firmware (>= 15.0)
