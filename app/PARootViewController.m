@@ -3,7 +3,7 @@
 
 @implementation PARootViewController {
     UIStackView *_stack;
-    UILabel *_carplayLbl, *_gpsLbl, *_engineLbl, *_locLbl;
+    UILabel *_carplayLbl, *_gpsLbl, *_engineLbl, *_locLbl, *_sensorLbl;
     UISwitch *_enabledSw, *_onlyCarSw, *_popsSw, *_shiftSw, *_testSw;
     UISlider *_volSl, *_toneSl, *_testSl;
     UILabel *_testVal;
@@ -44,6 +44,7 @@
     UIStackView *st = [self card:@"TRẠNG THÁI"];
     _carplayLbl = [self valueRow:@"CarPlay" in:st];
     _gpsLbl = [self valueRow:@"Tốc độ GPS" in:st];
+    _sensorLbl = [self valueRow:@"Cảm biến" in:st];
     _engineLbl = [self valueRow:@"Động cơ" in:st];
     _locLbl = [self valueRow:@"Quyền vị trí" in:st];
     UIButton *perm = [self button:@"Cấp quyền vị trí (chọn \"Luôn luôn\")" action:@selector(askPermission)];
@@ -53,7 +54,7 @@
     UIStackView *on = [self card:@"HOẠT ĐỘNG"];
     _enabledSw = [self switchRow:@"Bật pô ảo" in:on action:@selector(changed:)];
     _onlyCarSw = [self switchRow:@"Chỉ chạy khi kết nối CarPlay" in:on action:@selector(changed:)];
-    [on addArrangedSubview:[self note:@"Cắm CarPlay → tiếng đề máy và nổ máy. Xe chạy → tiếng pô theo tốc độ GPS. Rút CarPlay → tắt máy."]];
+    [on addArrangedSubview:[self note:@"Cắm CarPlay → tiếng đề máy và nổ máy. Xe chạy → tiếng pô theo tốc độ (GPS + gia tốc kế + con quay + áp kế). Rút CarPlay → tắt máy.\nGắn iPhone cố định trên giá đỡ. Lần đầu chạy, tăng tốc và phanh vài lần để máy tự học hướng xe."]];
 
     // --- Dong co ---
     UIStackView *en = [self card:@"KIỂU ĐỘNG CƠ"];
@@ -226,6 +227,7 @@
     else if (s->state == PA_STOPPING) st = @"Đang tắt máy…";
     _engineLbl.text = st;
     _locLbl.text = e.locationStatusText;
+    _sensorLbl.text = e.sensorStatusText;
     _testVal.text = [NSString stringWithFormat:@"%.0f km/h", e.testSpeedKmh];
     [_startBtn setTitle:(e.engineOn ? @"Tắt máy" : @"Nổ máy thử") forState:UIControlStateNormal];
 }

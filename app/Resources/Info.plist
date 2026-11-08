@@ -23,6 +23,8 @@
 		<string>audio</string>
 		<string>location</string>
 	</array>
+	<key>NSMotionUsageDescription</key>
+	<string>NDA Drive dùng cảm biến chuyển động và áp kế để đo tốc độ, gia tốc và độ dốc, giúp tiếng pô phản ứng tức thì như xe thật.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>NDA Drive dùng tốc độ GPS để tạo tiếng động cơ theo tốc độ xe.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

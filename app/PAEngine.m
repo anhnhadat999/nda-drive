@@ -2,6 +2,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreLocation/CoreLocation.h>
 #import <UIKit/UIKit.h>
+#import "PAMotion.h"
 
 NSString *const PAEngineDidUpdateNotification = @"PAEngineDidUpdateNotification";
 
@@ -17,6 +18,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     AVAudioEngine *_audio;
     AVAudioSourceNode *_source;
     CLLocationManager *_lm;
+    PAMotion *_motion;
     BOOL _booted, _routeCarPlay, _tweakCarPlay, _manualRun, _locating;
     double _lastFixSpeed, _lastFixAccel, _lastTestSpeed;
     NSTimeInterval _lastFixTime;
@@ -70,7 +72,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
 - (void)setToneAmount:(double)v { _toneAmount = v; [self save:@(v) key:@"tone"]; [self applySettings]; }
 - (void)setPopsEnabled:(BOOL)v { _popsEnabled = v; [self save:@(v) key:@"pops"]; [self applySettings]; }
 - (void)setShiftPopEnabled:(BOOL)v { _shiftPopEnabled = v; [self save:@(v) key:@"shiftPop"]; [self applySettings]; }
-- (void)setTestMode:(BOOL)v { _testMode = v; _lastTestSpeed = _testSpeedKmh; [self evaluate]; }
+- (void)setTestMode:(BOOL)v { _testMode = v; _lastTestSpeed = _testSpeedKmh; _motion.feedSynth = !v; [self evaluate]; }
 
 #pragma mark - Khoi dong
 
@@ -78,6 +80,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     if (_booted) return;
     _booted = YES;
 
+    _motion = [[PAMotion alloc] initWithSynth:&_synth];
     _lm = [CLLocationManager new];
     _lm.delegate = self;
     _lm.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
@@ -241,6 +244,13 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 
 - (void)requestLocationPermission { [_lm requestAlwaysAuthorization]; }
 
+- (NSString *)sensorStatusText {
+    if (!_motion.running) return @"Tắt";
+    NSString *cal = _motion.calibrated ? @"đã học hướng xe ✓" : @"đang học hướng xe…";
+    NSString *gps = _motion.gpsOk ? @"GPS tốt" : @"mất GPS (dùng cảm biến)";
+    return [NSString stringWithFormat:@"%@ · %@ · %.0f km/h · dốc %.1f%%", cal, gps, _motion.speedKmh, _motion.gradePct];
+}
+
 - (NSString *)locationStatusText {
     switch (_lm.authorizationStatus) {
         case kCLAuthorizationStatusAuthorizedAlways: return @"Luôn cho phép ✓";
@@ -261,9 +271,14 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         [_lm startUpdatingLocation];
         _locating = YES;
     }
+    if (_locating || st == kCLAuthorizationStatusNotDetermined) {
+        _motion.feedSynth = !_testMode;
+        [_motion start];              // gia toc ke + con quay + ap ke (100 lan/giay)
+    }
 }
 
 - (void)stopLocation {
+    [_motion stop];
     if (!_locating) return;
     [_lm stopUpdatingLocation];
     _locating = NO;
@@ -283,22 +298,9 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 }
 
 - (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray<CLLocation *> *)locations {
+    for (CLLocation *loc in locations) [_motion addLocation:loc];   // dua vao bo hop nhat cam bien
     CLLocation *loc = locations.lastObject;
-    if (!loc || loc.speed < 0 || loc.horizontalAccuracy < 0 || loc.horizontalAccuracy > 65) return;
-    double v = loc.speed * 3.6;
-    if (v < 1.5) v = 0; // loc nhieu GPS khi dung yen
-    NSTimeInterval t = loc.timestamp.timeIntervalSinceReferenceDate;
-    if (_lastFixTime > 0 && t > _lastFixTime) {
-        double a = (v - _lastFixSpeed) / (t - _lastFixTime);
-        _lastFixAccel = _lastFixAccel * 0.4 + a * 0.6;
-    }
-    _lastFixTime = t; _lastFixSpeed = v;
-    _gpsSpeedKmh = v;
-    if (!_testMode) {
-        _synth.gpsAccel = _lastFixAccel;
-        _synth.gpsSpeed = v;
-        _synth.gpsAge = fmax(0, -loc.timestamp.timeIntervalSinceNow);
-    }
+    if (loc && loc.speed >= 0) _gpsSpeedKmh = loc.speed * 3.6;
 }
 
 - (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {

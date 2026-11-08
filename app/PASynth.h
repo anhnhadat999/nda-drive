@@ -37,7 +37,9 @@ typedef struct {
     volatile int pops, shiftPop;
     volatile double gpsSpeed;     // km/h, -1 = chua co
     volatile double gpsAccel;     // km/h/s
-    volatile double gpsAge;       // giay ke tu ban tin GPS cuoi (luong audio tu cong them)
+    volatile double gpsAge;       // giay ke tu ban tin cuoi (luong audio tu cong them)
+    // (gpsSpeed/gpsAccel nay la toc do & gia toc DA HOP NHAT GPS + cam bien, cap nhat 100 lan/giay)
+    volatile double grade;        // do doc (sin goc) tu ap ke
     volatile int requestStart, requestStop;
 
     // ---- trang thai (chi luong audio ghi; luong chinh chi doc de hien thi) ----
@@ -47,7 +49,7 @@ typedef struct {
     volatile double load, boost;
 
     // noi bo
-    double stateT, accel, cut, master;
+    double stateT, accel, cut, master, shiftT, blip;
     double ph, phHalf, env, rpmA, loadA, lpY, lpPop, popEnv, popAmp;
     double whPh, bov, bovLp, noiseLp;
     double svfLow[3], svfBand[3], intLow, intBand;

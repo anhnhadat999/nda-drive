@@ -15,6 +15,7 @@ extern NSString *const PAEngineDidUpdateNotification;
 @property (nonatomic, readonly) BOOL engineOn;
 @property (nonatomic, readonly) double gpsSpeedKmh;   // -1 neu chua co
 @property (nonatomic, readonly) NSString *locationStatusText;
+@property (nonatomic, readonly) NSString *sensorStatusText;   // trang thai bo hop nhat cam bien
 @property (nonatomic, readonly) PASynth *synth;
 
 // Cai dat (luu lai tu dong)

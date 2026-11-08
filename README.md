@@ -28,3 +28,20 @@ Biên dịch thủ công (cần Theos): `make package FINALPACKAGE=1 THEOS_PACKA
 
 ## An toàn
 Chỉnh âm lượng vừa phải để vẫn nghe được còi xe và xe ưu tiên.
+
+## Đo tốc độ: GPS + cảm biến (PAFusion)
+| Nguồn | Tần suất | Ưu | Nhược |
+|---|---|---|---|
+| GPS (Doppler) | 1 lần/giây | Chính xác lâu dài | Trễ 0,5–1 s, mất trong hầm |
+| Gia tốc kế + con quay | 100 lần/giây | Tức thì | Trôi sai số nếu dùng một mình |
+| Áp kế | ~1 lần/giây | Đo độ dốc | Chỉ dùng cho tải động cơ |
+
+- Bộ lọc Kalman 2 trạng thái (tốc độ, sai lệch gia tốc kế), bù độ trễ GPS bằng lịch sử 2,5 s.
+- Tự học hướng tiến của xe trong hệ tọa độ iPhone (gắn dọc/ngang/lệch góc đều được); xoay hoặc tháo máy khỏi giá thì tự học lại.
+- Nhận biết xe dừng hẳn (rung nhỏ, không xoay) để đưa tốc độ về 0 ngay, không chờ GPS.
+- Mất GPS (hầm): chạy bằng cảm biến; sau 25 s giảm tin cậy để tránh trôi.
+- Thử nghiệm mô phỏng (`test/fusion_sim.c`): sai số RMS 0,75–1,4 km/h so với 3,0–3,3 km/h khi chỉ dùng GPS; trong hầm 20 s: 0,1–2,5 km/h.
+
+## Mô hình động cơ
+- Tải động cơ tính theo vật lý: gia tốc + ma sát lăn + cản gió (∝ v²) + độ dốc, chia cho lực kéo tối đa ở số hiện tại (có đường cong mô-men).
+- Hộp số 6 cấp: điểm sang số theo độ đạp ga, khoảng nghỉ tối thiểu 0,6 s, kickdown khi đạp sâu, về số có rồ ga (rev-match), ngắt đánh lửa khi lên số.

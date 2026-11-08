@@ -22,7 +22,7 @@ int main(int argc,char**argv){
   int total=(int)(T*sr/N)*N; fwrite("RIFF",1,4,f);wr32(f,36+total*2);fwrite("WAVEfmt ",1,8,f);wr32(f,16);wr16(f,1);wr16(f,1);wr32(f,48000);wr32(f,96000);wr16(f,2);wr16(f,16);fwrite("data",1,4,f);wr32(f,total*2);
   float buf[512]; double t=0, nextFix=0, prevV=0; double peak=0, sum=0; long cnt=0; int nans=0; int maxGear=0; double maxRpm=0;
   for(int b=0;b<total/N;b++){
-    if(t>=nextFix){ double v=drive(t-0.8)+ ((rand()%100)/100.0-0.5)*0.6; if(v<0)v=0; s.gpsAccel = s.gpsSpeed<0?0:(v-prevV); prevV=v; s.gpsSpeed=v; s.gpsAge=0; nextFix+=1.0; }
+    { double v=drive(t+0.05)+((rand()%100)/100.0-0.5)*1.2; if(v<0)v=0; s.gpsAccel=(drive(t+0.1)-drive(t))/0.1; s.gpsSpeed=v; s.gpsAge=0; (void)nextFix; (void)prevV; }
     if(t>39.5 && t<39.6) s.requestStop=1;
     pa_render(&s,buf,N,sr);
     for(int i=0;i<N;i++){ float x=buf[i]; if(isnan(x)){nans++;x=0;} if(fabs(x)>peak)peak=fabs(x); sum+=x*x; cnt++; int16_t q=(int16_t)(x*32000); fwrite(&q,2,1,f);}

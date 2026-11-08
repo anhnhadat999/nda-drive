@@ -77,43 +77,52 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     s->gpsAge += dt;
 
     // toc do muc tieu: GPS + du doan theo gia toc (GPS tre ~1 giay)
-    double target = 0;
+    double target = 0, accIn = 0;
     if (s->gpsSpeed >= 0 && s->gpsAge < 4) {
-        double ahead = s->gpsAge < 1.0 ? s->gpsAge : 1.0;
-        target = s->gpsSpeed + s->gpsAccel * ahead * 0.6;
+        double ahead = s->gpsAge < 0.5 ? s->gpsAge : 0.5;
+        target = s->gpsSpeed + s->gpsAccel * ahead;
+        accIn = s->gpsAccel;
         if (target < 0) target = 0;
     } else if (s->gpsSpeed >= 0) {
-        target = s->speed * 0.98; // mat GPS (ham chui): giu toc do, giam dan
+        target = s->speed * 0.98; // mat tin hieu: giu toc do, giam dan
     }
-    double gAcc = GEAR_ACC[s->gear] * p->power * fmax(0.15, 1 - s->speed / 290) * 1.6;
-    double diff = target - s->speed;
-    double dv = clampd(diff, -30 * dt, gAcc * dt);
+    // bam sat toc do da hop nhat (gioi han de khong giat khi du lieu nhay)
+    double dv = clampd((target - s->speed) * fmin(1, dt * 12), -45 * dt, 35 * dt);
     s->speed = fmax(0, s->speed + dv);
-    double acc = dv / fmax(dt, 1e-3);
-    s->accel += (acc - s->accel) * fmin(1, dt * 3);
+    s->accel += (accIn - s->accel) * fmin(1, dt * 8);
 
-    // do dap ga suy ra tu gia toc
+    // ---- Do dap ga theo vat ly: luc can dat duoc gia toc hien tai ----
+    double v = s->speed / 3.6, aMs = s->accel / 3.6;
+    double aReq = aMs + 0.12 /*ma sat lan*/ + 0.5 * 1.2 * 0.75 * v * v / 1800.0 /*gio*/ + 9.81 * s->grade /*doc*/;
+    double rpmN0 = fmin(1, s->rpm / p->redline);
+    double tq = 0.72 + 0.28 * sin(M_PI * rpmN0);                       // duong cong momen xoan
+    double aMax = GEAR_ACC[s->gear] / 3.6 * p->power * tq;             // gia toc toi da o so hien tai
     double load;
-    if (s->speed < 1) load = 0.1;
-    else if (s->accel > 0.4) load = 0.22 + 0.78 * fmin(1, s->accel / 9.0);
-    else if (s->accel < -1.2) load = 0;
-    else load = 0.2;
+    if (s->speed < 1) load = aMs > 0.3 ? clampd(aReq / aMax, 0.3, 1) : 0.1;   // dung yen / bat dau lan banh
+    else if (aMs < -0.6 && aReq < 0.05) load = 0;                              // nha ga, phanh: dong co ghim
+    else load = clampd(aReq / aMax, 0.12, 1);
     if (s->load > 0.6 && load < 0.1 && s->boost > 0.45) s->bovPending = 1;
     s->load += (load - s->load) * fmin(1, dt * (load > s->load ? 6 : 5));
+    if (s->blip > 0) { s->blip -= dt; if (s->load < 0.7) s->load = 0.7; }      // ro ga khi ve so
     if (p->turbo) {
         double b = s->load * fmin(1, s->rpm / (p->redline * .55));
         s->boost += (b - s->boost) * fmin(1, dt * (b > s->boost ? 1.8 : 4));
     } else s->boost = 0;
 
     // hop so
+    s->shiftT += dt;
     if (s->speed < 3) s->gear = 0;
     double up = p->idle + (p->redline * 0.96 - p->idle) * (0.42 + 0.58 * s->load);
-    if (s->gear < 5 && rpm_at(s->speed, s->gear) > up) {
-        s->gear++;
+    if (s->gear < 5 && rpm_at(s->speed, s->gear) > up && s->shiftT > 0.6) {
+        s->gear++; s->shiftT = 0;
         s->cut = 0.11;
         if (s->shiftPop && s->load > 0.55) s->popReq = 1;
-    } else if (s->gear > 0 && rpm_at(s->speed, s->gear) < fmax(p->idle * 1.35, up * 0.42)) {
-        s->gear--;
+    } else if (s->gear > 0 && rpm_at(s->speed, s->gear) < fmax(p->idle * 1.35, up * 0.42) && s->shiftT > 0.6) {
+        s->gear--; s->shiftT = 0;
+        if (s->load < 0.15 && s->speed > 15) s->blip = 0.16;          // ve so co ro ga (rev-match)
+    } else if (s->gear > 0 && s->load > 0.88 && s->shiftT > 0.5 &&
+               rpm_at(s->speed, s->gear - 1) < p->redline * 0.86 && rpm_at(s->speed, s->gear) < p->redline * 0.55) {
+        s->gear--; s->shiftT = 0;                                       // kickdown: dap sau -> tut so
     }
     if (s->cut > 0) s->cut = fmax(0, s->cut - dt);
 
@@ -134,6 +143,7 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
             double wheel = rpm_at(s->speed, s->gear);
             double slip = s->gear == 0 ? p->idle + fmax(0, s->load - 0.2) * 2400 * (1 - fmin(1, s->speed / 15)) : 0;
             rt = fmax(fmax(p->idle + (frand(s) - .5) * 18, wheel), slip);
+            if (s->blip > 0) rt *= 1.08;
             rt = fmin(rt, p->redline * 1.01);
             k = (rt < s->rpm - 400 && s->cut > 0) ? 18 : 7;
             break;
