@@ -4,9 +4,9 @@ THEOS_PACKAGE_SCHEME ?= rootless
 
 include $(THEOS)/makefiles/common.mk
 
-APPLICATION_NAME = PoAo
-PoAo_FILES = main.m PAAppDelegate.m PARootViewController.m PAEngine.m PASynth.c
-PoAo_FRAMEWORKS = UIKit AVFoundation CoreLocation
-PoAo_CFLAGS = -fobjc-arc -Wno-error -Wno-deprecated-declarations
+APPLICATION_NAME = NDADrive
+NDADrive_FILES = main.m PAAppDelegate.m PARootViewController.m PAEngine.m PASynth.c
+NDADrive_FRAMEWORKS = UIKit AVFoundation CoreLocation
+NDADrive_CFLAGS = -fobjc-arc -Wno-error -Wno-deprecated-declarations
 
 include $(THEOS_MAKE_PATH)/application.mk

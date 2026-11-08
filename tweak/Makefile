@@ -5,9 +5,9 @@ THEOS_PACKAGE_SCHEME ?= rootless
 
 include $(THEOS)/makefiles/common.mk
 
-TWEAK_NAME = PoAoLauncher
-PoAoLauncher_FILES = Tweak.x
-PoAoLauncher_FRAMEWORKS = UIKit AVFoundation
-PoAoLauncher_CFLAGS = -fobjc-arc -Wno-error
+TWEAK_NAME = NDADriveLauncher
+NDADriveLauncher_FILES = Tweak.x
+NDADriveLauncher_FRAMEWORKS = UIKit AVFoundation
+NDADriveLauncher_CFLAGS = -fobjc-arc -Wno-error
 
 include $(THEOS_MAKE_PATH)/tweak.mk

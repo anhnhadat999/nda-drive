@@ -6,8 +6,8 @@
 NSString *const PAEngineDidUpdateNotification = @"PAEngineDidUpdateNotification";
 
 // Thong bao Darwin do tweak trong SpringBoard gui sang
-static NSString *const kNotifyCarPlayOn  = @"com.ndarealty.poao.carplay.on";
-static NSString *const kNotifyCarPlayOff = @"com.ndarealty.poao.carplay.off";
+static NSString *const kNotifyCarPlayOn  = @"com.ndarealty.ndadrive.carplay.on";
+static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off";
 
 @interface PAEngine () <CLLocationManagerDelegate>
 @end
@@ -148,7 +148,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     }
     if (!_audio.isRunning) {
         [_audio prepare];
-        if (![_audio startAndReturnError:&err]) NSLog(@"[PoAo] Khong khoi dong duoc am thanh: %@", err);
+        if (![_audio startAndReturnError:&err]) NSLog(@"[NDADrive] Khong khoi dong duoc am thanh: %@", err);
     }
 }
 
@@ -302,7 +302,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 }
 
 - (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
-    NSLog(@"[PoAo] Loi GPS: %@", error);
+    NSLog(@"[NDADrive] Loi GPS: %@", error);
 }
 
 @end

@@ -20,6 +20,7 @@ typedef struct {
     double tone, noise, drive, lp0, lp1;
     int turbo;
     double decay, popK, vtec;
+    double intake;      // tieng hut gio (0 = khong co)
 } PAPreset;
 
 extern const PAPreset PA_PRESETS[];
@@ -49,7 +50,7 @@ typedef struct {
     double stateT, accel, cut, master;
     double ph, phHalf, env, rpmA, loadA, lpY, lpPop, popEnv, popAmp;
     double whPh, bov, bovLp, noiseLp;
-    double svfLow[3], svfBand[3];
+    double svfLow[3], svfBand[3], intLow, intBand;
     int cylIdx, popReq, bovPending;
     unsigned int rng;
 } PASynth;

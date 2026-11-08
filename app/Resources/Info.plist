@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key><string>vi</string>
-	<key>CFBundleExecutable</key><string>PoAo</string>
-	<key>CFBundleIdentifier</key><string>com.ndarealty.poao</string>
+	<key>CFBundleExecutable</key><string>NDADrive</string>
+	<key>CFBundleIdentifier</key><string>com.ndarealty.ndadrive</string>
 	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-	<key>CFBundleName</key><string>PoAo</string>
-	<key>CFBundleDisplayName</key><string>Pô Ảo</string>
+	<key>CFBundleName</key><string>NDADrive</string>
+	<key>CFBundleDisplayName</key><string>NDA Drive</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
 	<key>CFBundleShortVersionString</key><string>0.1.0</string>
 	<key>CFBundleVersion</key><string>1</string>
@@ -24,8 +24,8 @@
 		<string>location</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Pô Ảo dùng tốc độ GPS để tạo tiếng động cơ theo tốc độ xe.</string>
+	<string>NDA Drive dùng tốc độ GPS để tạo tiếng động cơ theo tốc độ xe.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Chọn "Luôn luôn" để Pô Ảo tự chạy khi điện thoại kết nối CarPlay, kể cả khi bạn không mở app.</string>
+	<string>Chọn "Luôn luôn" để NDA Drive tự chạy khi điện thoại kết nối CarPlay, kể cả khi bạn không mở app.</string>
 </dict>
 </plist>

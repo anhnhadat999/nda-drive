@@ -12,7 +12,7 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"Pô Ảo";
+    self.title = @"NDA Drive";
     self.navigationController.navigationBar.prefersLargeTitles = YES;
     self.view.backgroundColor = UIColor.systemGroupedBackgroundColor;
     self.view.tintColor = [UIColor colorWithRed:1.0 green:0.69 blue:0.13 alpha:1];
@@ -51,7 +51,7 @@
 
     // --- Bat tat ---
     UIStackView *on = [self card:@"HOẠT ĐỘNG"];
-    _enabledSw = [self switchRow:@"Bật Pô Ảo" in:on action:@selector(changed:)];
+    _enabledSw = [self switchRow:@"Bật pô ảo" in:on action:@selector(changed:)];
     _onlyCarSw = [self switchRow:@"Chỉ chạy khi kết nối CarPlay" in:on action:@selector(changed:)];
     [on addArrangedSubview:[self note:@"Cắm CarPlay → tiếng đề máy và nổ máy. Xe chạy → tiếng pô theo tốc độ GPS. Rút CarPlay → tắt máy."]];
 

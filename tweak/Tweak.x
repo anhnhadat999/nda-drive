@@ -1,4 +1,4 @@
-// PoAoLauncher - tweak nho trong SpringBoard:
+// NDADriveLauncher - tweak nho trong SpringBoard:
 //  1) Mo ngam app Po Ao sau khi SpringBoard khoi dong (sau khi bam jailbreak / respring)
 //  2) Theo doi CarPlay; khi ket noi -> dam bao app dang chay va bao cho app biet
 // Tweak KHONG phat am thanh, khong dung GPS -> rat nhe, it rui ro treo SpringBoard.
@@ -7,9 +7,9 @@
 #import <AVFoundation/AVFoundation.h>
 #import <dlfcn.h>
 
-#define APP_ID @"com.ndarealty.poao"
-#define NOTIFY_ON  CFSTR("com.ndarealty.poao.carplay.on")
-#define NOTIFY_OFF CFSTR("com.ndarealty.poao.carplay.off")
+#define APP_ID @"com.ndarealty.ndadrive"
+#define NOTIFY_ON  CFSTR("com.ndarealty.ndadrive.carplay.on")
+#define NOTIFY_OFF CFSTR("com.ndarealty.ndadrive.carplay.off")
 
 @interface FBSSystemService : NSObject
 + (instancetype)sharedService;
@@ -55,7 +55,7 @@ static void PALaunchApp(void) {
         NSString **sym = (NSString **)dlsym(RTLD_DEFAULT, "FBSOpenApplicationOptionKeyActivateSuspended");
         if (sym && *sym) keySuspended = *sym;
         [[svc sharedService] openApplication:APP_ID options:@{ keySuspended: @YES } withResult:^(NSError *error) {
-            if (error) NSLog(@"[PoAoLauncher] Khong mo duoc app: %@", error);
+            if (error) NSLog(@"[NDADriveLauncher] Khong mo duoc app: %@", error);
         }];
     });
 }
@@ -85,7 +85,7 @@ static void PAPoll(void) {
     BOOL now = PADetectCarPlay();
     if (now != gCarPlay) {
         gCarPlay = now;
-        NSLog(@"[PoAoLauncher] CarPlay %@", now ? @"KET NOI" : @"NGAT");
+        NSLog(@"[NDADriveLauncher] CarPlay %@", now ? @"KET NOI" : @"NGAT");
         if (now) PALaunchApp();
         PAPost(now);
         // nhac lai sau 2 giay de app vua mo kip nhan
@@ -99,7 +99,7 @@ static void PAPoll(void) {
 
 static void PAStart(void) {
     dlopen("/System/Library/PrivateFrameworks/CarKit.framework/CarKit", RTLD_LAZY);
-    gQueue = dispatch_queue_create("com.ndarealty.poao.launcher", DISPATCH_QUEUE_SERIAL);
+    gQueue = dispatch_queue_create("com.ndarealty.ndadrive.launcher", DISPATCH_QUEUE_SERIAL);
     PALaunchApp();
     gTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, gQueue);
     dispatch_source_set_timer(gTimer, dispatch_time(DISPATCH_TIME_NOW, 2 * NSEC_PER_SEC), 3 * NSEC_PER_SEC, NSEC_PER_SEC / 2);

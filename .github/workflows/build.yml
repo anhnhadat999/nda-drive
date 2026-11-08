@@ -1,4 +1,4 @@
-name: Build Po Ao
+name: Build NDA Drive
 
 on:
   push:
@@ -25,7 +25,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: poao-deb
+          name: nda-drive-deb
           path: packages/*.deb
 
       - name: Dang ban phat hanh "latest"
@@ -33,4 +33,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest packages/*.deb --title "Pô Ảo – bản mới nhất" --notes "Tải tệp .deb trên iPhone, mở bằng Sileo hoặc Filza để cài, rồi Respring."
+          gh release create latest packages/*.deb --title "NDA Drive – bản mới nhất" --notes "Tải tệp .deb trên iPhone, mở bằng Sileo hoặc Filza để cài, rồi Respring."
