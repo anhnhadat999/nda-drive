@@ -52,7 +52,7 @@ static void PALaunchApp(void) {
         Class svc = NSClassFromString(@"FBSSystemService");
         if (!svc) return;
         NSString *keySuspended = @"__ActivateSuspended";
-        NSString **sym = (NSString **)dlsym(RTLD_DEFAULT, "FBSOpenApplicationOptionKeyActivateSuspended");
+        NSString * __unsafe_unretained *sym = (NSString * __unsafe_unretained *)dlsym(RTLD_DEFAULT, "FBSOpenApplicationOptionKeyActivateSuspended");
         if (sym && *sym) keySuspended = *sym;
         [[svc sharedService] openApplication:APP_ID options:@{ keySuspended: @YES } withResult:^(NSError *error) {
             if (error) NSLog(@"[NDADriveLauncher] Khong mo duoc app: %@", error);
