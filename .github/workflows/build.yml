@@ -14,6 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Kiem thu tu dong (bo tao am + bo do toc do)
+        run: sh test/run_tests.sh
+
       - name: Cai Theos
         run: |
           brew install ldid make xz dpkg

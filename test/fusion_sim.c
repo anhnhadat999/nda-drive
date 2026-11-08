@@ -63,4 +63,7 @@ int main(int argc,char**argv){
   }
   printf("\nKET QUA (mount=%s): sai so trung binh (RMS) KET HOP=%.2f km/h, CHI GPS=%.2f km/h | lon nhat: %.1f vs %.1f km/h | trong ham (ket hop)=%.2f km/h | hoc xong truc tien sau %.0f s, goc=%.1f do\n",
     mount?"ngang":"doc",sqrt(eF/n),sqrt(eG/n),maxErrF,maxErrG,sqrt(tunErrF/fmax(1,tunN)),calT,f.theta*180/M_PI);
+  int ok = sqrt(eF/n) < 1.8 && sqrt(eF/n) < sqrt(eG/n) && sqrt(tunErrF/fmax(1,tunN)) < 3.5 && calT > 0 && calT < 20;
+  printf("  -> %s\n", ok?"DAT":"KHONG DAT");
+  return ok?0:1;
 }

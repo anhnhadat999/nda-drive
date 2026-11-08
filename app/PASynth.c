@@ -96,7 +96,7 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     double aReq = aMs + 0.12 /*ma sat lan*/ + 0.5 * 1.2 * 0.75 * v * v / 1800.0 /*gio*/ + 9.81 * s->grade /*doc*/;
     double rpmN0 = fmin(1, s->rpm / p->redline);
     double tq = 0.72 + 0.28 * sin(M_PI * rpmN0);                       // duong cong momen xoan
-    double aMax = GEAR_ACC[s->gear] / 3.6 * p->power * tq;             // gia toc toi da o so hien tai
+    double aMax = GEAR_ACC[s->gear] / 3.6 * p->power * tq * 1.8;       // gia toc toi da o so hien tai (xe the thao)
     double load;
     if (s->speed < 1) load = aMs > 0.3 ? clampd(aReq / aMax, 0.3, 1) : 0.1;   // dung yen / bat dau lan banh
     else if (aMs < -0.6 && aReq < 0.05) load = 0;                              // nha ga, phanh: dong co ghim
