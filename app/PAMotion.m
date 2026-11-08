@@ -15,7 +15,7 @@
     long _imuCountPrev, _gpsCountPrev; double _rateT;
     BOOL _rawMode;
     double _rawG[3], _lastRot[3];
-    volatile double _alt;
+    volatile double _altM;
     double _lastSavedTheta;
 }
 
@@ -57,7 +57,7 @@
         __weak typeof(self) ws = self;
         [_alt startRelativeAltitudeUpdatesToQueue:_q withHandler:^(CMAltitudeData *d, NSError *err) {
             typeof(self) ss = ws;
-            if (d && ss) { ss->_alt = d.relativeAltitude.doubleValue; paf_baro(&ss->_f, d.relativeAltitude.doubleValue, d.timestamp); }
+            if (d && ss) { ss->_altM = d.relativeAltitude.doubleValue; paf_baro(&ss->_f, d.relativeAltitude.doubleValue, d.timestamp); }
             if (err) PALog(@"Ap ke loi: %@", err.localizedDescription);
         }];
     }
@@ -183,7 +183,7 @@
         double gm = sqrt(rr[0] * rr[0] + rr[1] * rr[1] + rr[2] * rr[2]);
         double gn = sqrt(gr[0] * gr[0] + gr[1] * gr[1] + gr[2] * gr[2]);
         double tilt = gn > 0 ? acos(fmin(1, fabs(gr[2]) / gn)) * 180 / M_PI : 0;
-        double alt = _alt;
+        double alt = _altM;
         dispatch_async(dispatch_get_main_queue(), ^{
             self->_ax = x; self->_ay = y; self->_az = z; self->_gyroMag = gm; self->_tiltDeg = tilt; self->_altitudeM = alt;
             self->_speedKmh = v; self->_accelMs2 = a; self->_gradePct = gp; self->_quality = q;
