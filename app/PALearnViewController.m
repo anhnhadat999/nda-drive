@@ -12,7 +12,7 @@
 - (void)viewWillDisappear:(BOOL)a { [super viewWillDisappear:a]; [_t invalidate]; }
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 4; }
-- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s { return @[@4, @5, @2, @1][s].integerValue; }
+- (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s { static const NSInteger n[4] = {4, 5, 2, 1}; return (s >= 0 && s < 4) ? n[s] : 0; }
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s { return @[@"Tổng quan", @"Độ bốc theo tốc độ", @"Phanh & cách lái", @""][s]; }
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     switch (s) {
