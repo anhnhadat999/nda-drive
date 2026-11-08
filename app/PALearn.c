@@ -12,8 +12,8 @@ int pal_bin(double v) {
 
 void pal_init(PALearn *l) {
     memset(l, 0, sizeof *l);
-    // gia tri ban dau: xe pho thong (se duoc thay bang so lieu that sau vai chuyen)
-    const double a0[PAL_BINS] = {2.6, 2.4, 1.9, 1.4, 1.0};
+    // gia tri ban dau: kieu xe dien (mo-men xoan tuc thi, boc manh o toc do thap) - se duoc thay bang so lieu that
+    const double a0[PAL_BINS] = {3.2, 3.0, 2.3, 1.7, 1.2};
     for (int i = 0; i < PAL_BINS; i++) { l->accP95[i] = a0[i] * 0.6; l->accPeak[i] = a0[i]; l->brkP95[i] = 3.5; }
     l->accMed = 0.8;
 }

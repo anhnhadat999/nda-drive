@@ -6,6 +6,7 @@
 #import "PACalibrationViewController.h"
 #import "PALog.h"
 #import "PALearnViewController.h"
+#import "PATripsViewController.h"
 
 typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
 
@@ -41,7 +42,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
         case SecSound: return 6;
-        case SecLearn: return 2;
+        case SecLearn: return 4;
         case SecRun: return 2;
         case SecTest: return 2;
         case SecStatus: return 3;
@@ -57,7 +58,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     switch (s) {
         case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.\n\"Hiệu ứng tiếng từ phía sau\" làm tiếng trầm và vang như vọng từ ống xả sau xe. Muốn tiếng phát hẳn từ loa sau, chỉnh Fader về phía sau trong cài đặt âm thanh của xe.";
-        case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi chỉnh tiếng pô, điểm sang số cho khớp. Học hoàn toàn trên iPhone.";
+        case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi chỉnh tiếng pô, điểm sang số cho khớp. Học hoàn toàn trên iPhone. \"Lịch sử chuyến đi\" lưu số liệu từng chuyến để gửi phân tích, tinh chỉnh tiếng pô cho đúng xe điện của bạn.";
         case SecRun: return @"Bật mục này để xe tự nổ máy mỗi khi iPhone kết nối Apple CarPlay và tắt máy khi ngắt kết nối.";
         case SecTest: return @"Chỉ dùng khi xe đang đỗ. Kéo thanh tốc độ để nghe sang số mà không cần chạy xe.";
         case SecStatus: return @"Gắn iPhone cố định trên giá đỡ. Lần đầu lái, tăng tốc và phanh vài lần để máy tự học hướng xe.";
@@ -137,6 +138,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             return [self switchCell:@"Hiệu ứng tiếng từ phía sau" icon:@"speaker.wave.2.fill" on:e.rearEffect tag:17];
         case SecLearn: {
             if (ip.row == 0) return [self switchCell:@"Tự học theo xe và cách lái" icon:@"brain" on:e.learnEnabled tag:18];
+            if (ip.row == 2) return [self switchCell:@"Ghi lịch sử chuyến đi" icon:@"record.circle" on:e.recordEnabled tag:19];
+            if (ip.row == 3) return [self infoCell:@"Lịch sử chuyến đi" detail:nil icon:@"list.bullet.rectangle" tappable:YES];
             PALearn l = ((PAMotion *)e.motion).learned;
             return [self infoCell:@"Hồ sơ xe đã học" detail:[NSString stringWithFormat:@"%.0f%% · 0–100 ~%.1f s", pal_confidence(&l) * 100, pal_zero_to_100(&l)] icon:@"chart.line.uptrend.xyaxis" tappable:YES];
         }
@@ -170,6 +173,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     if (ip.section == SecStatus && ip.row == 0) {
         [PAEngine.shared requestLocationPermission];
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
+    } else if (ip.section == SecLearn && ip.row == 3) {
+        [self.navigationController pushViewController:[PATripsViewController new] animated:YES];
     } else if (ip.section == SecLearn && ip.row == 1) {
         [self.navigationController pushViewController:[PALearnViewController new] animated:YES];
     } else if (ip.section == SecStatus && ip.row == 2) {
@@ -202,6 +207,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         case 16: e.autoVolume = s.on; break;
         case 17: e.rearEffect = s.on; break;
         case 18: e.learnEnabled = s.on; break;
+        case 19: e.recordEnabled = s.on; break;
         case 14:
             e.testMode = s.on;
             [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:1 inSection:SecTest]] withRowAnimation:UITableViewRowAnimationNone];

@@ -113,6 +113,7 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     if (s->load > 0.6 && load < 0.1 && s->boost > 0.45) s->bovPending = 1;
     s->load += (load - s->load) * fmin(1, dt * (load > s->load ? 6 : 5));
     if (s->blip > 0) { s->blip -= dt; if (s->load < 0.7) s->load = 0.7; }      // ro ga khi ve so
+    s->overT = s->load < 0.06 ? s->overT + dt : 0;                          // thoi gian dang nha ga
     if (p->turbo) {
         double b = s->load * fmin(1, s->rpm / (p->redline * .55));
         s->boost += (b - s->boost) * fmin(1, dt * (b > s->boost ? 1.8 : 4));
@@ -205,7 +206,9 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
             double a = p->uneven[s->cylIdx] * (over ? 0.22 : 0.32 + 0.68 * loadA);
             if (cutting) a *= 0.05;
             if (a > s->env) s->env = a;
-            if (over && s->pops && rpmA > 2300 && frand(s) < 0.035 * p->popK * (1 + rpmN)) {
+            // Xe dien phanh tai sinh lau: no nhieu 1,5 s dau sau khi nha ga, roi thua dan (nhu xe xang that)
+            double popFade = s->overT < 1.5 ? 1.0 : (s->overT < 4 ? 0.3 : 0.12);
+            if (over && s->pops && rpmA > 2300 && frand(s) < 0.035 * p->popK * (1 + rpmN) * popFade) {
                 s->popEnv = 1;
                 s->popAmp = 0.5 + frand(s) * (frand(s) < .15 ? 1.6 : .7);
             }

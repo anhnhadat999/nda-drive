@@ -17,6 +17,9 @@
     double _rawG[3], _lastRot[3];
     volatile double _altM;
     PALearn _learn; double _learnLastTs; long _learnN;
+    // ghi chuyen di (chi dung tren _q)
+    NSFileHandle *_trip; NSURL *_tripURL; NSMutableString *_tripBuf;
+    double _tripT0, _tripDist, _tripVmax, _tripAmax, _tripBmax, _tripLastTs; long _tripRows; NSDate *_tripStart;
     double _lastSavedTheta;
 }
 
@@ -124,6 +127,81 @@
     [self startMotionUpdates];
 }
 
++ (NSURL *)tripsFolder {
+    NSURL *doc = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
+    NSURL *u = [doc URLByAppendingPathComponent:@"trips" isDirectory:YES];
+    [NSFileManager.defaultManager createDirectoryAtURL:u withIntermediateDirectories:YES attributes:nil error:nil];
+    return u;
+}
+
+- (void)startTrip {
+    if (!_recordEnabled) return;
+    [_q addOperationWithBlock:^{
+        if (self->_trip) return;
+        NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyyMMdd_HHmmss";
+        self->_tripStart = [NSDate date];
+        self->_tripURL = [[PAMotion tripsFolder] URLByAppendingPathComponent:[NSString stringWithFormat:@"trip_%@.csv", [df stringFromDate:self->_tripStart]]];
+        NSString *head = @"t_s,gps_kmh,gps_acc_ms,fused_kmh,a_long_ms2,ax,ay,az,gyro_rads,grade_pct,tilt_deg,calibrated,stationary,gps_ok,src,synth_kmh,rpm,gear,load,state,cal_theta_deg\n";
+        [head writeToURL:self->_tripURL atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        self->_trip = [NSFileHandle fileHandleForWritingToURL:self->_tripURL error:nil];
+        [self->_trip seekToEndOfFile];
+        self->_tripBuf = [NSMutableString string];
+        self->_tripT0 = 0; self->_tripDist = 0; self->_tripVmax = 0; self->_tripAmax = 0; self->_tripBmax = 0; self->_tripRows = 0; self->_tripLastTs = 0;
+        PALog(@"Ghi chuyen di: %@", self->_tripURL.lastPathComponent);
+    }];
+    // Giu toi da 40 chuyen gan nhat
+    NSArray *files = [[NSFileManager.defaultManager contentsOfDirectoryAtURL:[PAMotion tripsFolder] includingPropertiesForKeys:nil options:0 error:nil]
+                      sortedArrayUsingComparator:^NSComparisonResult(NSURL *a, NSURL *b) { return [a.lastPathComponent compare:b.lastPathComponent]; }];
+    NSArray *csv = [files filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"pathExtension == 'csv'"]];
+    for (NSInteger i = 0; i + 40 < (NSInteger)csv.count; i++) {
+        [NSFileManager.defaultManager removeItemAtURL:csv[i] error:nil];
+        [NSFileManager.defaultManager removeItemAtURL:[csv[i] URLByAppendingPathExtension:@"json"] error:nil];
+    }
+}
+
+- (void)stopTrip {
+    [_q addOperationWithBlock:^{
+        if (!self->_trip) return;
+        [self->_trip writeData:[self->_tripBuf dataUsingEncoding:NSUTF8StringEncoding]];
+        [self->_trip closeFile]; self->_trip = nil;
+        double dur = -[self->_tripStart timeIntervalSinceNow];
+        NSDictionary *sum = @{ @"file": self->_tripURL.lastPathComponent, @"start": @([self->_tripStart timeIntervalSince1970]),
+            @"duration_s": @(round(dur)), @"distance_km": @(round(self->_tripDist * 100) / 100), @"vmax_kmh": @(round(self->_tripVmax * 10) / 10),
+            @"accel_max_ms2": @(round(self->_tripAmax * 100) / 100), @"brake_max_ms2": @(round(self->_tripBmax * 100) / 100),
+            @"rows": @(self->_tripRows), @"app": [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"",
+            @"zero_to_100_est_s": @(round(pal_zero_to_100(&self->_learn) * 10) / 10), @"sport": @(round(pal_sport(&self->_learn) * 100) / 100) };
+        NSData *js = [NSJSONSerialization dataWithJSONObject:sum options:NSJSONWritingPrettyPrinted error:nil];
+        [js writeToURL:[self->_tripURL URLByAppendingPathExtension:@"json"] atomically:YES];
+        PALog(@"Ket thuc chuyen di: %.1f km, %.0f s, %ld mau", self->_tripDist, dur, self->_tripRows);
+        if (dur < 20 || self->_tripRows < 100) {   // bo chuyen qua ngan (bat/tat thu)
+            [NSFileManager.defaultManager removeItemAtURL:self->_tripURL error:nil];
+            [NSFileManager.defaultManager removeItemAtURL:[self->_tripURL URLByAppendingPathExtension:@"json"] error:nil];
+        }
+    }];
+}
+
+// goi tren _q, 10 lan/giay
+- (void)recordRow:(double)ts ua:(double *)ua rot:(double *)rr gravity:(double *)gr {
+    if (!_trip) return;
+    if (_tripT0 == 0) _tripT0 = ts;
+    double v = _f.v * 3.6, dt = _tripLastTs > 0 ? ts - _tripLastTs : 0;
+    _tripLastTs = ts;
+    if (dt > 0 && dt < 1) _tripDist += v / 3600.0 * dt;
+    if (v > _tripVmax) _tripVmax = v;
+    if (_f.calibrated) { if (_f.aLongRaw > _tripAmax) _tripAmax = _f.aLongRaw; if (-_f.aLongRaw > _tripBmax) _tripBmax = -_f.aLongRaw; }
+    double gm = sqrt(rr[0] * rr[0] + rr[1] * rr[1] + rr[2] * rr[2]);
+    double gn = sqrt(gr[0] * gr[0] + gr[1] * gr[1] + gr[2] * gr[2]);
+    double tilt = gn > 0 ? acos(fmin(1, fabs(gr[2]) / gn)) * 180 / M_PI : 0;
+    [_tripBuf appendFormat:@"%.2f,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.1f,%d,%d,%d,%d,%.2f,%.0f,%d,%.2f,%d,%.1f\n",
+        ts - _tripT0, _gpsRawKmh, _gpsAccuracy, v, _f.calibrated ? _f.aLongRaw : _f.a, ua[0], ua[1], ua[2], gm, _f.grade * 100, tilt,
+        _f.calibrated, _f.stationary, _f.gpsOk, _rawMode ? 2 : 1, _synth->speed, _synth->rpm, _synth->gear + 1, _synth->load, (int)_synth->state, _f.theta * 180 / M_PI];
+    _tripRows++;
+    if (_tripRows % 20 == 0) {           // ghi xuong may moi 2 giay
+        [_trip writeData:[_tripBuf dataUsingEncoding:NSUTF8StringEncoding]];
+        [_tripBuf setString:@""];
+    }
+}
+
 - (void)pushLearnToSynth {
     for (int i = 0; i < PAL_BINS && i < 5; i++) _synth->learnCap[i] = fmax(_learn.accPeak[i], _learn.accP95[i]);
     _synth->learnSport = pal_sport(&_learn);
@@ -188,6 +266,7 @@
     double ldt = _learnLastTs > 0 ? ts - _learnLastTs : 0.01;
     _learnLastTs = ts;
     if (_learnEnabled) pal_update(&_learn, _f.v * 3.6, _f.aLongRaw, ldt, _f.calibrated && _f.gpsOk && !_f.stationary);
+    if (_learnN % 10 == 0) [self recordRow:ts ua:ua rot:rr gravity:gr];
     if (++_learnN % 100 == 0) {           // ~1 lan/giay
         [self pushLearnToSynth];
         PALearn copy = _learn;

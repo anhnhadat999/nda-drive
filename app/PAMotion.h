@@ -26,7 +26,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)updateRates;
 @property (nonatomic) BOOL learnEnabled;
 @property (nonatomic, readonly) PALearn learned;    // ban sao ho so da hoc (cap nhat ~1 lan/giay)
-- (void)resetLearning;                       // khoi dong lai cam bien chuyen dong (khi iOS dung gui so lieu)
+- (void)resetLearning;
+// Ghi lich su chuyen di: 10 mau/giay vao Documents/trips/trip_YYYYMMDD_HHmmss.csv (+ .json tom tat)
+@property (nonatomic) BOOL recordEnabled;
+- (void)startTrip;
+- (void)stopTrip;
++ (NSURL *)tripsFolder;                       // khoi dong lai cam bien chuyen dong (khi iOS dung gui so lieu)
 @property (nonatomic, readonly) double imuAge, gpsAge;   // so giay ke tu lan nhan so lieu cuoi
 @property (nonatomic, readonly) BOOL gpsOnlyFallback;   // dang dung thang GPS vi cam bien dung
 // So lieu tho cho o thong so (cap nhat ~5 lan/giay tren luong chinh)

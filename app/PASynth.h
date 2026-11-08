@@ -54,7 +54,7 @@ typedef struct {
     volatile double load, boost;
 
     // noi bo
-    double stateT, accel, cut, master, shiftT, blip;
+    double stateT, accel, cut, master, shiftT, blip, overT;
     double ph, phHalf, env, rpmA, loadA, lpY, lpPop, popEnv, popAmp;
     double whPh, bov, bovLp, noiseLp;
     double svfLow[3], svfBand[3], intLow, intBand;
