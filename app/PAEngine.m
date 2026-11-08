@@ -20,6 +20,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     CLLocationManager *_lm;
     PAMotion *_motion;
     BOOL _booted, _routeCarPlay, _tweakCarPlay, _manualRun, _locating;
+    BOOL _userOff, _lastCarPlay, _sessionReady, _restarting;
     double _lastFixSpeed, _lastFixAccel, _lastTestSpeed;
     NSTimeInterval _lastFixTime;
     dispatch_source_t _tick;
@@ -116,22 +117,30 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     NSString *n = (__bridge NSString *)name;
     dispatch_async(dispatch_get_main_queue(), ^{
         e->_tweakCarPlay = [n isEqualToString:kNotifyCarPlayOn];
-        [e startAudio];
         [e evaluate];
     });
 }
 
 #pragma mark - Am thanh
 
-- (void)startAudio {
-    if (!_enabled) return;
+- (void)configureSession {
+    if (_sessionReady) return;
     AVAudioSession *as = AVAudioSession.sharedInstance;
     NSError *err = nil;
-    // Phat tron cung nhac (khong lam ngat nhac/Chi duong)
-    [as setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeDefault
-            options:AVAudioSessionCategoryOptionMixWithOthers error:&err];
-    [as setActive:YES error:&err];
+    // Phat tron cung nhac (khong lam ngat nhac/Chi duong). Chi cai dat MOT lan:
+    // cai lai lien tuc se lam iOS bao "doi cau hinh" -> vong lap -> treo app.
+    if (![as.category isEqualToString:AVAudioSessionCategoryPlayback] ||
+        !(as.categoryOptions & AVAudioSessionCategoryOptionMixWithOthers)) {
+        [as setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeDefault
+                options:AVAudioSessionCategoryOptionMixWithOthers error:&err];
+    }
+    if ([as setActive:YES error:&err]) _sessionReady = YES;
+    else NSLog(@"[NDADrive] Khong kich hoat duoc phien am thanh: %@", err);
+}
 
+- (void)startAudio {
+    if (!_enabled) return;
+    [self configureSession];
     if (!_audio) {
         _audio = [AVAudioEngine new];
         double sr = [_audio.outputNode outputFormatForBus:0].sampleRate;
@@ -145,11 +154,13 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
             return noErr;
         }];
         [_audio attachNode:_source];
+        // bo tron (mixer) tu chuyen doi tan so lay mau khi doi loa/tai nghe/CarPlay
         [_audio connect:_source to:_audio.mainMixerNode format:fmt];
         [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(audioConfigChanged:)
                                                    name:AVAudioEngineConfigurationChangeNotification object:_audio];
     }
     if (!_audio.isRunning) {
+        NSError *err = nil;
         [_audio prepare];
         if (![_audio startAndReturnError:&err]) NSLog(@"[NDADrive] Khong khoi dong duoc am thanh: %@", err);
     }
@@ -157,31 +168,39 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 
 - (void)stopAudio {
     [_audio stop];
+    _sessionReady = NO;
     [AVAudioSession.sharedInstance setActive:NO withOptions:AVAudioSessionSetActiveOptionNotifyOthersOnDeactivation error:nil];
 }
 
-- (void)rebuildAudio {
-    if (_audio) {
-        [NSNotificationCenter.defaultCenter removeObserver:self name:AVAudioEngineConfigurationChangeNotification object:_audio];
-        [_audio stop];
-        _audio = nil; _source = nil;
-    }
-    [self startAudio];
-}
-
 - (void)audioConfigChanged:(NSNotification *)n {
-    dispatch_async(dispatch_get_main_queue(), ^{ [self rebuildAudio]; });
+    // Doi loa / tai nghe / CarPlay: iOS dung bo am thanh. Chi can khoi dong LAI (khong dung lai tu dau),
+    // va gop cac thong bao don dap trong 0,5 giay thanh mot lan.
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self->_restarting) return;
+        self->_restarting = YES;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            self->_restarting = NO;
+            if (self->_enabled && self->_audio && !self->_audio.isRunning) {
+                NSError *err = nil;
+                [self->_audio prepare];
+                [self->_audio startAndReturnError:&err];
+            }
+        });
+    });
 }
 
 - (void)mediaReset:(NSNotification *)n {
-    dispatch_async(dispatch_get_main_queue(), ^{ self->_audio = nil; self->_source = nil; [self startAudio]; });
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [NSNotificationCenter.defaultCenter removeObserver:self name:AVAudioEngineConfigurationChangeNotification object:self->_audio];
+        self->_audio = nil; self->_source = nil; self->_sessionReady = NO; [self startAudio];
+    });
 }
 
 - (void)interrupted:(NSNotification *)n {
     NSUInteger type = [n.userInfo[AVAudioSessionInterruptionTypeKey] unsignedIntegerValue];
     if (type == AVAudioSessionInterruptionTypeEnded) {
         // Het cuoc goi / Siri: bat lai am thanh
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ [self startAudio]; });
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ self->_sessionReady = NO; [self startAudio]; });
     }
 }
 
@@ -204,11 +223,16 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 
 #pragma mark - Quyet dinh no may / tat may
 
-- (void)manualStart { _manualRun = YES; [self startAudio]; [self evaluate]; }
-- (void)manualStop { _manualRun = NO; [self evaluate]; }
+// Nut No may / Tat may luon co hieu luc. "Tat may" giu trang thai tat cho den lan ket noi CarPlay ke tiep.
+- (void)manualStart { _userOff = NO; _manualRun = YES; [self evaluate]; }
+- (void)manualStop { _userOff = YES; _manualRun = NO; [self evaluate]; }
 
 - (void)evaluate {
-    BOOL shouldRun = _enabled && (_manualRun || _testMode || !_onlyWithCarPlay || self.carPlayConnected);
+    BOOL car = self.carPlayConnected;
+    if (car && !_lastCarPlay) { _userOff = NO; }          // vua ket noi CarPlay: tu no may lai
+    if (!car && _lastCarPlay) { _manualRun = NO; }        // vua rut CarPlay: tat may
+    _lastCarPlay = car;
+    BOOL shouldRun = _enabled && !_userOff && (_manualRun || !_onlyWithCarPlay || car);
     if (shouldRun && !_engineOn) {
         _engineOn = YES;
         [self startAudio];
