@@ -35,6 +35,7 @@ typedef struct {
     volatile double volume;       // 0..1
     volatile double toneAmt;      // 0..1
     volatile int pops, shiftPop;
+    volatile int autoVol;         // tu tang am luong theo toc do (bu tieng gio, tieng lop)
     volatile double gpsSpeed;     // km/h, -1 = chua co
     volatile double gpsAccel;     // km/h/s
     volatile double gpsAge;       // giay ke tu ban tin cuoi (luong audio tu cong them)

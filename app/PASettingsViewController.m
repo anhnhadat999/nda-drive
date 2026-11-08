@@ -2,6 +2,7 @@
 #import "PAEngine.h"
 #import "PAUpdater.h"
 #import "PATheme.h"
+#import "PACalibrationViewController.h"
 
 typedef NS_ENUM(NSInteger, PASec) { SecSound, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
 
@@ -36,7 +37,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecRun, SecTest, SecStatus, SecUpd
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
-        case SecSound: return 4;
+        case SecSound: return 5;
         case SecRun: return 2;
         case SecTest: return 2;
         case SecStatus: return 2;
@@ -51,7 +52,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecRun, SecTest, SecStatus, SecUpd
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     switch (s) {
-        case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.";
+        case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.";
         case SecRun: return @"Bật mục này để xe tự nổ máy mỗi khi iPhone kết nối Apple CarPlay và tắt máy khi ngắt kết nối.";
         case SecTest: return @"Chỉ dùng khi xe đang đỗ. Kéo thanh tốc độ để nghe sang số mà không cần chạy xe.";
         case SecStatus: return @"Gắn iPhone cố định trên giá đỡ. Lần đầu lái, tăng tốc và phanh vài lần để máy tự học hướng xe.";
@@ -126,7 +127,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 0) return [self sliderCell:@"Âm lượng" value:e.volume max:1 tag:1 detail:[NSString stringWithFormat:@"%.0f%%", e.volume * 100] enabled:YES];
             if (ip.row == 1) return [self sliderCell:@"Độ đanh của pô" value:e.toneAmount max:1 tag:2 detail:toneText(e.toneAmount) enabled:YES];
             if (ip.row == 2) return [self switchCell:@"Nổ lụp bụp khi nhả ga" icon:@"flame.fill" on:e.popsEnabled tag:10];
-            return [self switchCell:@"Tiếng \"bụp\" khi lên số" icon:@"arrow.up.circle.fill" on:e.shiftPopEnabled tag:11];
+            if (ip.row == 3) return [self switchCell:@"Tiếng \"bụp\" khi lên số" icon:@"arrow.up.circle.fill" on:e.shiftPopEnabled tag:11];
+            return [self switchCell:@"Tự tăng âm lượng theo tốc độ" icon:@"speaker.wave.3.fill" on:e.autoVolume tag:16];
         case SecRun:
             if (ip.row == 0) return [self switchCell:@"Bật pô ảo" icon:@"power" on:e.enabled tag:12];
             return [self switchCell:@"Tự nổ máy khi kết nối CarPlay" icon:@"car.fill" on:e.onlyWithCarPlay tag:13];
@@ -135,7 +137,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             return [self sliderCell:@"Tốc độ giả lập" value:e.testSpeedKmh max:220 tag:3 detail:[NSString stringWithFormat:@"%.0f km/h", e.testSpeedKmh] enabled:e.testMode];
         case SecStatus:
             if (ip.row == 0) return [self infoCell:@"Vị trí" detail:e.locationStatusText icon:@"location.fill" tappable:YES];
-            return [self infoCell:@"Cảm biến" detail:e.sensorStatusText icon:@"gyroscope" tappable:NO];
+            return [self infoCell:@"Căn chỉnh cảm biến" detail:e.sensorStatusText icon:@"gyroscope" tappable:YES];
         case SecUpdate:
             if (ip.row == 0) {
                 NSString *d = u.checking ? @"Đang kiểm tra…" :
@@ -156,6 +158,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     if (ip.section == SecStatus && ip.row == 0) {
         [PAEngine.shared requestLocationPermission];
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
+    } else if (ip.section == SecStatus && ip.row == 1) {
+        [self.navigationController pushViewController:[PACalibrationViewController new] animated:YES];
     } else if (ip.section == SecUpdate && ip.row == 0) {
         PAUpdater *u = PAUpdater.shared;
         if (u.updateAvailable) [u openUpdateInSileo]; else [u checkNow];
@@ -173,6 +177,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         case 11: e.shiftPopEnabled = s.on; break;
         case 12: e.enabled = s.on; break;
         case 13: e.onlyWithCarPlay = s.on; break;
+        case 16: e.autoVolume = s.on; break;
         case 14:
             e.testMode = s.on;
             [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:1 inSection:SecTest]] withRowAnimation:UITableViewRowAnimationNone];

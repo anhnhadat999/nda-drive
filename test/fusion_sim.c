@@ -35,6 +35,9 @@ int main(int argc,char**argv){
   mm(mount?B1:B0,Rz,T); mm(Rt,T,Rvd);
   double bias[3]={0.06,-0.04,0.05};
   PAFusion f; paf_init(&f);
+  int wrongcal = argc>3 && atoi(argv[3])==1;   // nap san can chinh SAI 40 do (may bi xoay ngang tren gia)
+  double trueTheta = mount ? 24.8*M_PI/180 : -28.1*M_PI/180;
+  if (wrongcal) { double gv[3]={0,0,-9.81}, gd[3]; mul(Rvd,gv,gd); paf_load_calibration(&f, trueTheta + 40*M_PI/180, gd); }
   double dt=0.01, nextGps=0.3; double gpsDelay=0.6;
   // GPS-only (cach cu): giu ban tin cuoi + ngoai suy theo gia toc GPS
   double gV=-1,gPrevV=0,gPrevT=0,gA=0,gT=0;
@@ -63,7 +66,21 @@ int main(int argc,char**argv){
   }
   printf("\nKET QUA (mount=%s): sai so trung binh (RMS) KET HOP=%.2f km/h, CHI GPS=%.2f km/h | lon nhat: %.1f vs %.1f km/h | trong ham (ket hop)=%.2f km/h | hoc xong truc tien sau %.0f s, goc=%.1f do\n",
     mount?"ngang":"doc",sqrt(eF/n),sqrt(eG/n),maxErrF,maxErrG,sqrt(tunErrF/fmax(1,tunN)),calT,f.theta*180/M_PI);
-  int ok = sqrt(eF/n) < 1.8 && sqrt(eF/n) < sqrt(eG/n) && sqrt(tunErrF/fmax(1,tunN)) < 3.5 && calT > 0 && calT < 20;
+  // Kiem tra ghi nho can chinh: cung goc gan -> dung ngay; doi goc gan -> phai hoc lai
+  int reuseOk, rejectOk;
+  { PAFusion f2; paf_init(&f2); paf_load_calibration(&f2, f.theta, f.gCal);
+    double gv[3]={0,0,-9.81}, gd[3], z[3]={0,0,0}; mul(Rvd,gv,gd);
+    for(int i=0;i<120;i++) paf_imu(&f2,z,gd,z,500+i*0.01);
+    reuseOk = f2.calibrated && fabs(f2.theta - f.theta) < 1e-9; }
+  { PAFusion f3; paf_init(&f3); paf_load_calibration(&f3, f.theta, f.gCal);
+    double Rz2[3][3], R2[3][3]; rotz(40*M_PI/180,Rz2); mm(Rz2,Rvd,R2);   // nghieng may 40 do trong mat phang man hinh
+    double gv[3]={0,0,-9.81}, gd[3], z[3]={0,0,0}; mul(R2,gv,gd);
+    for(int i=0;i<120;i++) paf_imu(&f3,z,gd,z,500+i*0.01);
+    rejectOk = !f3.calibrated; }
+  printf("  ghi nho can chinh: dung lai=%s, doi goc gan -> hoc lai=%s\n", reuseOk?"OK":"LOI", rejectOk?"OK":"LOI");
+  double thErr = fabs(atan2(sin(f.theta-trueTheta),cos(f.theta-trueTheta)))*180/M_PI;
+  if (wrongcal) printf("  nap can chinh sai 40 do -> sau chuyen di lech con %.1f do\n", thErr);
+  int ok = (!wrongcal || thErr < 8) && reuseOk && rejectOk && sqrt(eF/n) < (wrongcal ? 3.0 : 1.8) && sqrt(eF/n) < sqrt(eG/n) && sqrt(tunErrF/fmax(1,tunN)) < 3.5 && calT > 0 && calT < 20;
   printf("  -> %s\n", ok?"DAT":"KHONG DAT");
   return ok?0:1;
 }

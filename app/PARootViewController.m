@@ -1,7 +1,6 @@
 #import "PARootViewController.h"
 #import "PAEngine.h"
 #import "PAUpdater.h"
-#import "PACarArt.h"
 #import "PATheme.h"
 
 // ======================= Dong ho vong tua =======================
@@ -84,8 +83,7 @@
     CADisplayLink *_link;
     UIButton *_startBtn, *_updateBtn, *_permBtn;
     UILabel *_chipCar, *_chipGps, *_chipSensor;
-    PACarView *_carView;
-    UILabel *_carName, *_carSub;
+    UILabel *_carName, *_carSub, *_carSpec;
 }
 
 - (instancetype)init {
@@ -161,25 +159,28 @@
     card.backgroundColor = PA_CARD;
     card.layer.cornerRadius = 18; card.layer.borderWidth = 1; card.layer.borderColor = PA_LINE.CGColor;
     [card addTarget:self action:@selector(openCars) forControlEvents:UIControlEventTouchUpInside];
-    _carView = [PACarView new]; _carView.userInteractionEnabled = NO;
-    _carName = [UILabel new]; _carName.font = PAFont(20, UIFontWeightHeavy); _carName.textColor = PA_FG;
-    _carSub = [UILabel new]; _carSub.font = PAFont(13, UIFontWeightMedium); _carSub.textColor = PA_MUTED; _carSub.numberOfLines = 2;
-    UILabel *change = [UILabel new]; change.text = @"Đổi xe ›"; change.font = PAFont(14, UIFontWeightSemibold); change.textColor = PA_AMBER;
-    for (UIView *v in @[_carView, _carName, _carSub, change]) { v.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:v]; }
+    UILabel *cap = [UILabel new];
+    cap.attributedText = [[NSAttributedString alloc] initWithString:@"XE ĐANG CHỌN" attributes:@{ NSFontAttributeName: PAFont(12, UIFontWeightBold), NSForegroundColorAttributeName: PA_MUTED, NSKernAttributeName: @1.5 }];
+    _carName = [UILabel new]; _carName.font = PAFont(30, UIFontWeightHeavy); _carName.textColor = PA_FG; _carName.adjustsFontSizeToFitWidth = YES; _carName.minimumScaleFactor = 0.6;
+    _carSub = [UILabel new]; _carSub.font = PAFont(14, UIFontWeightMedium); _carSub.textColor = PA_MUTED; _carSub.numberOfLines = 2;
+    _carSpec = [UILabel new]; _carSpec.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightSemibold]; _carSpec.textColor = PA_AMBER;
+    UILabel *change = [UILabel new]; change.text = @"Đổi xe ›"; change.font = PAFont(15, UIFontWeightSemibold); change.textColor = PA_AMBER;
+    for (UIView *v in @[cap, _carName, _carSub, _carSpec, change]) { v.translatesAutoresizingMaskIntoConstraints = NO; v.userInteractionEnabled = NO; [card addSubview:v]; }
     [NSLayoutConstraint activateConstraints:@[
-        [_carView.topAnchor constraintEqualToAnchor:card.topAnchor constant:6],
-        [_carView.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:8],
-        [_carView.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-8],
-        [_carView.heightAnchor constraintEqualToConstant:120],
-        [_carName.topAnchor constraintEqualToAnchor:_carView.bottomAnchor],
-        [_carName.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:16],
-        [change.centerYAnchor constraintEqualToAnchor:_carName.centerYAnchor],
-        [change.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-16],
-        [_carName.trailingAnchor constraintLessThanOrEqualToAnchor:change.leadingAnchor constant:-8],
+        [cap.topAnchor constraintEqualToAnchor:card.topAnchor constant:16],
+        [cap.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:18],
+        [change.centerYAnchor constraintEqualToAnchor:cap.centerYAnchor],
+        [change.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
+        [_carName.topAnchor constraintEqualToAnchor:cap.bottomAnchor constant:6],
+        [_carName.leadingAnchor constraintEqualToAnchor:cap.leadingAnchor],
+        [_carName.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
         [_carSub.topAnchor constraintEqualToAnchor:_carName.bottomAnchor constant:2],
-        [_carSub.leadingAnchor constraintEqualToAnchor:_carName.leadingAnchor],
-        [_carSub.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-16],
-        [_carSub.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-14],
+        [_carSub.leadingAnchor constraintEqualToAnchor:cap.leadingAnchor],
+        [_carSub.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
+        [_carSpec.topAnchor constraintEqualToAnchor:_carSub.bottomAnchor constant:8],
+        [_carSpec.leadingAnchor constraintEqualToAnchor:cap.leadingAnchor],
+        [_carSpec.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-18],
+        [_carSpec.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-16],
     ]];
     [_stack addArrangedSubview:card];
 
@@ -260,9 +261,9 @@
 
     int pi = pa_preset_index(e.presetKey.UTF8String);
     const PAPreset *p = &PA_PRESETS[pi];
-    if (![_carView.presetKey isEqualToString:e.presetKey]) _carView.presetKey = e.presetKey;
     _carName.text = @(p->name);
     _carSub.text = @(p->car);
+    _carSpec.text = [NSString stringWithFormat:@"%d xi-lanh · tối đa %.0f v/p%@", p->cyl, p->redline, p->turbo ? @" · turbo" : @""];
 }
 
 @end

@@ -26,6 +26,10 @@ extern NSString *const PAEngineDidUpdateNotification;
 @property (nonatomic) double toneAmount;         // 0..1
 @property (nonatomic) BOOL popsEnabled;
 @property (nonatomic) BOOL shiftPopEnabled;
+@property (nonatomic) BOOL autoVolume;           // tu tang am luong theo toc do
+@property (nonatomic) double speedTrim;          // -0.10..+0.10
+@property (nonatomic) NSInteger responseMode;    // 0 on dinh, 1 can bang, 2 nhanh
+@property (nonatomic, readonly) id motion;       // PAMotion (so lieu can chinh)
 
 // Thu khi dung yen
 @property (nonatomic) BOOL testMode;             // dung toc do gia lap thay cho GPS

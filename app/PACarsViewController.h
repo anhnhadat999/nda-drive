@@ -1,4 +1,4 @@
 #import <UIKit/UIKit.h>
 
-@interface PACarsViewController : UICollectionViewController
+@interface PACarsViewController : UITableViewController
 @end

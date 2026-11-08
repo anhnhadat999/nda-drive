@@ -39,7 +39,8 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _gpsSpeedKmh = -1;
         NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
         [d registerDefaults:@{ @"enabled": @YES, @"onlyWithCarPlay": @YES, @"preset": @"gt3",
-                               @"volume": @0.7, @"tone": @0.5, @"pops": @YES, @"shiftPop": @YES }];
+                               @"volume": @0.7, @"tone": @0.5, @"pops": @YES, @"shiftPop": @YES,
+                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1 }];
         _enabled = [d boolForKey:@"enabled"];
         _onlyWithCarPlay = [d boolForKey:@"onlyWithCarPlay"];
         _presetKey = [d stringForKey:@"preset"] ?: @"gt3";
@@ -47,6 +48,9 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _toneAmount = [d doubleForKey:@"tone"];
         _popsEnabled = [d boolForKey:@"pops"];
         _shiftPopEnabled = [d boolForKey:@"shiftPop"];
+        _autoVolume = [d boolForKey:@"autoVolume"];
+        _speedTrim = [d doubleForKey:@"speedTrim"];
+        _responseMode = [d integerForKey:@"responseMode"];
         [self applySettings];
     }
     return self;
@@ -64,7 +68,16 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     _synth.toneAmt = _toneAmount;
     _synth.pops = _popsEnabled;
     _synth.shiftPop = _shiftPopEnabled;
+    _synth.autoVol = _autoVolume;
+    PAMotion *mo = _motion;
+    mo.speedTrim = _speedTrim;
+    mo.responseScale = _responseMode == 0 ? 0.6 : (_responseMode == 2 ? 1.6 : 1.0);
 }
+
+- (id)motion { return _motion; }
+- (void)setAutoVolume:(BOOL)v { _autoVolume = v; [self save:@(v) key:@"autoVolume"]; [self applySettings]; }
+- (void)setSpeedTrim:(double)v { _speedTrim = v; [self save:@(v) key:@"speedTrim"]; [self applySettings]; }
+- (void)setResponseMode:(NSInteger)v { _responseMode = v; [self save:@(v) key:@"responseMode"]; [self applySettings]; }
 
 - (void)setEnabled:(BOOL)v { _enabled = v; [self save:@(v) key:@"enabled"]; [self evaluate]; }
 - (void)setOnlyWithCarPlay:(BOOL)v { _onlyWithCarPlay = v; [self save:@(v) key:@"onlyWithCarPlay"]; [self evaluate]; }
@@ -82,6 +95,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     _booted = YES;
 
     _motion = [[PAMotion alloc] initWithSynth:&_synth];
+    [self applySettings];
     _lm = [CLLocationManager new];
     _lm.delegate = self;
     _lm.desiredAccuracy = kCLLocationAccuracyBestForNavigation;

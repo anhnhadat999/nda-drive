@@ -26,6 +26,14 @@ void paf_init(PAFusion *f) {
     f->g[1] = -1;                 // tam: dien thoai dung doc
     f->lastGpsCourse = -1;
     f->quality = 0;
+    f->sigScale = 1;
+}
+
+void paf_load_calibration(PAFusion *f, double theta, const double g[3]) {
+    f->savedTheta = theta;
+    f->savedG[0] = g[0]; f->savedG[1] = g[1]; f->savedG[2] = g[2];
+    unit3(f->savedG);
+    f->savedPending = 1;
 }
 
 // Co so 2 truc nam ngang (e1: huong tien mac dinh, e2 vuong goc) tu huong trong luc
@@ -55,7 +63,7 @@ static void kf_update(PAFusion *f, double z, double R, double vRef) {
 }
 
 static void reset_cal(PAFusion *f) {
-    f->calibrated = 0; f->theta = 0; f->Sx = f->Sy = f->E = 0;
+    f->calibrated = 0; f->theta = 0; f->Sx = f->Sy = f->E = 0; f->calProgress = 0;
 }
 
 void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], const double rot[3], double t) {
@@ -80,10 +88,22 @@ void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], cons
 
     double e1[3], e2[3];
     basis(f->g, e1, e2);
+    // dung lai can chinh da luu khi trong luc da on dinh (~0,5 s)
+    f->nImu++;
+    if (f->savedPending && f->nImu > 50) {
+        f->savedPending = 0;
+        if (dot3(f->g, f->savedG) > cos(15 * M_PI / 180)) {
+            f->theta = f->savedTheta; f->calibrated = 1; f->calProgress = 1;
+            memcpy(f->gCal, f->g, sizeof f->g);
+            f->E = CAL_ENERGY;
+            f->Sx = cos(f->theta) * CAL_ENERGY; f->Sy = sin(f->theta) * CAL_ENERGY;
+        }
+    }
     double hx = dot3(userAcc, e1), hy = dot3(userAcc, e2);
     f->hxSum += hx; f->hySum += hy; f->hN++;
 
     double aLong = hx * cos(f->theta) + hy * sin(f->theta);
+    f->aLongRaw = f->calibrated ? aLong - f->b : 0;
 
     // nhan biet dung yen: rung nho, khong xoay
     double k = fmin(1, dt / 0.6);
@@ -97,7 +117,7 @@ void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], cons
 
     // ---- Kalman: du doan ----
     double aUse = f->calibrated ? (aLong - f->b) : f->aGps * 0.8; // chua hoc truc: ngoai suy theo gia toc GPS
-    double sigA = f->calibrated ? SIG_A_CAL : SIG_A_UNCAL;
+    double sigA = (f->calibrated ? SIG_A_CAL : SIG_A_UNCAL) * (f->sigScale > 0 ? f->sigScale : 1);
     if (!f->gpsOk && f->calibrated && (t - f->lastFixWall) > 25) aUse *= 0.5; // mat GPS lau: han che troi
     f->v += aUse * dt;
     if (f->v < 0) f->v = 0;
@@ -170,9 +190,10 @@ void paf_gps(PAFusion *f, double speed, double speedAcc, double course, double t
                 f->Sy = f->Sy * CAL_FORGET + hyA * aG;
                 f->E  = f->E  * CAL_FORGET + aG * aG;
                 double corrMag = sqrt(f->Sx * f->Sx + f->Sy * f->Sy) / fmax(1e-6, f->E);
+                if (!f->calibrated) f->calProgress = fmin(0.95, f->E / CAL_ENERGY);
                 if (f->E > CAL_ENERGY && corrMag > 0.4) {
                     double th = atan2(f->Sy, f->Sx);
-                    if (!f->calibrated) { f->theta = th; f->calibrated = 1; memcpy(f->gCal, f->g, sizeof f->g); }
+                    if (!f->calibrated) { f->theta = th; f->calibrated = 1; f->calProgress = 1; memcpy(f->gCal, f->g, sizeof f->g); }
                     else {
                         double d = atan2(sin(th - f->theta), cos(th - f->theta));
                         f->theta += d * 0.3;

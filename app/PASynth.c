@@ -160,7 +160,7 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
     double dt = n / sr;
     physics(s, p, dt);
 
-    double targetMaster = s->volume * 0.9;
+    double targetMaster = s->volume * 0.9 * (s->autoVol ? 1.0 + 0.5 * fmin(s->speed, 120) / 120.0 : 1.0);
     double rpmT = s->rpm, loadT = (s->state == PA_RUNNING) ? s->load : 0.15;
     if (s->state == PA_STARTING && s->stateT > 0.8) loadT = 0.6;
     double rpm0 = s->rpmA, load0 = s->loadA;

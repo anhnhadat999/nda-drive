@@ -43,9 +43,18 @@ typedef struct {
     double dist;                    // quang duong da di (m), de tinh do doc
     double aGps;                    // gia toc suy tu GPS (dung khi chua hoc xong)
     double histT[PAF_HIST], histV[PAF_HIST]; int histI;
+    double sigScale;                // he so phan hoi: <1 on dinh hon, >1 nhanh hon (mac dinh 1)
+    double calProgress;             // 0..1 tien do hoc huong xe
+    double aLongRaw;                // gia toc doc xe tuc thoi (chua loc), de hien thi
+    int savedPending; long nImu;
+    double savedTheta, savedG[3];
 } PAFusion;
 
 void paf_init(PAFusion *f);
+
+// Nap ket qua can chinh da luu (goc truc tien + huong trong luc luc hoc).
+// Neu dien thoai van gan dung goc cu (lech < 15 do) thi dung ngay, khong can hoc lai.
+void paf_load_calibration(PAFusion *f, double theta, const double g[3]);
 
 // Mau cam bien chuyen dong (CoreMotion deviceMotion), he toa do dien thoai:
 //  userAcc: gia toc do nguoi dung/xe gay ra (m/s^2, da tru trong luc)

@@ -17,6 +17,10 @@ NS_ASSUME_NONNULL_BEGIN
 // Doc de hien thi (cap nhat tren luong chinh ~5 lan/giay)
 @property (nonatomic, readonly) double speedKmh, accelMs2, gradePct, quality;
 @property (nonatomic, readonly) BOOL calibrated, stationary, gpsOk;
+@property (nonatomic, readonly) double calProgress, mountAngleDeg, gpsAccuracy, gpsRawKmh;
+@property (atomic) double speedTrim;          // hieu chinh toc do: -0.10..+0.10 (khop dong ho xe)
+@property (atomic) double responseScale;      // 0.6 on dinh, 1 can bang, 1.6 nhanh
+- (void)resetCalibration;                     // xoa can chinh da luu, hoc lai tu dau
 @end
 
 NS_ASSUME_NONNULL_END
