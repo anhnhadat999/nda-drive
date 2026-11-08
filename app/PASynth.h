@@ -36,7 +36,10 @@ typedef struct {
     volatile double toneAmt;      // 0..1
     volatile int pops, shiftPop;
     volatile int autoVol;
-    volatile int rearFx;          // mo phong tieng truyen tu ong xa phia sau qua khoang xe         // tu tang am luong theo toc do (bu tieng gio, tieng lop)
+    volatile int rearFx;
+    volatile int learnOn;         // dung ho so xe da hoc (do boc that + phong cach lai)
+    volatile double learnCap[5];  // do boc toi da da hoc theo 5 dai toc do (m/s^2)
+    volatile double learnSport;   // 0 em .. 1 the thao          // mo phong tieng truyen tu ong xa phia sau qua khoang xe         // tu tang am luong theo toc do (bu tieng gio, tieng lop)
     volatile double gpsSpeed;     // km/h, -1 = chua co
     volatile double gpsAccel;     // km/h/s
     volatile double gpsAge;       // giay ke tu ban tin cuoi (luong audio tu cong them)

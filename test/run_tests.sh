@@ -20,5 +20,8 @@ echo "== Tu sua khi nap can chinh cu sai 40 do (may bi xoay tren gia)"
 for m in 0 1; do
   "$OUT/fusion" $m 1 1 | tail -3 | tr '\n' ' '; echo; "$OUT/fusion" $m 1 1 > /dev/null || fail=1
 done
+echo "== Hoc thich nghi: 2 xe x 2 phong cach lai"
+$CC -O2 -Wall -o "$OUT/learn" test/learn_test.c app/PALearn.c -lm
+"$OUT/learn" || fail=1
 rm -rf "$OUT"
 if [ $fail = 0 ]; then echo "TAT CA KIEM THU: DAT"; else echo "CO KIEM THU KHONG DAT"; exit 1; fi

@@ -42,7 +42,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
         [d registerDefaults:@{ @"enabled": @YES, @"onlyWithCarPlay": @YES, @"preset": @"gt3",
                                @"volume": @0.7, @"tone": @0.5, @"pops": @YES, @"shiftPop": @YES,
-                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES }];
+                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES }];
         _enabled = [d boolForKey:@"enabled"];
         _onlyWithCarPlay = [d boolForKey:@"onlyWithCarPlay"];
         _presetKey = [d stringForKey:@"preset"] ?: @"gt3";
@@ -54,6 +54,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _speedTrim = [d doubleForKey:@"speedTrim"];
         _responseMode = [d integerForKey:@"responseMode"];
         _rearEffect = [d boolForKey:@"rearFx"];
+        _learnEnabled = [d boolForKey:@"learn"];
         [self applySettings];
     }
     return self;
@@ -75,10 +76,12 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     _synth.rearFx = _rearEffect;
     PAMotion *mo = _motion;
     mo.speedTrim = _speedTrim;
+    mo.learnEnabled = _learnEnabled;
     mo.responseScale = _responseMode == 0 ? 0.6 : (_responseMode == 2 ? 1.6 : 1.0);
 }
 
 - (id)motion { return _motion; }
+- (void)setLearnEnabled:(BOOL)v { _learnEnabled = v; [self save:@(v) key:@"learn"]; [self applySettings]; }
 - (void)setRearEffect:(BOOL)v { _rearEffect = v; [self save:@(v) key:@"rearFx"]; [self applySettings]; }
 - (void)setAutoVolume:(BOOL)v { _autoVolume = v; [self save:@(v) key:@"autoVolume"]; [self applySettings]; }
 - (void)setSpeedTrim:(double)v { _speedTrim = v; [self save:@(v) key:@"speedTrim"]; [self applySettings]; }

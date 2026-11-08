@@ -16,6 +16,7 @@
     BOOL _rawMode;
     double _rawG[3], _lastRot[3];
     volatile double _altM;
+    PALearn _learn; double _learnLastTs; long _learnN;
     double _lastSavedTheta;
 }
 
@@ -26,6 +27,12 @@
         _responseScale = 1;
         _gpsAccuracy = -1; _gpsRawKmh = -1;
         _sourceName = @"Chưa có";
+        _learnEnabled = YES;
+        pal_init(&_learn);
+        NSData *saved = [NSUserDefaults.standardUserDefaults dataForKey:@"learn.v1"];
+        if (saved.length == sizeof(PALearn)) memcpy(&_learn, saved.bytes, sizeof(PALearn));   // ho so da hoc tu cac chuyen truoc
+        _learned = _learn;
+        [self pushLearnToSynth];
         paf_init(&_f);
         _mm = [CMMotionManager new];
         _alt = [CMAltimeter new];
@@ -117,6 +124,27 @@
     [self startMotionUpdates];
 }
 
+- (void)pushLearnToSynth {
+    for (int i = 0; i < PAL_BINS && i < 5; i++) _synth->learnCap[i] = fmax(_learn.accPeak[i], _learn.accP95[i]);
+    _synth->learnSport = pal_sport(&_learn);
+    _synth->learnOn = _learnEnabled && pal_confidence(&_learn) > 0.05;
+}
+
+- (void)setLearnEnabled:(BOOL)v { _learnEnabled = v; if (_synth) _synth->learnOn = v && pal_confidence(&_learn) > 0.05; }
+
+- (void)resetLearning {
+    [_q addOperationWithBlock:^{
+        pal_init(&self->_learn);
+        [self pushLearnToSynth];
+        PALearn copy = self->_learn;
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self->_learned = copy;
+            [NSUserDefaults.standardUserDefaults removeObjectForKey:@"learn.v1"];
+        });
+    }];
+    PALog(@"Hoc thich nghi: dat lai");
+}
+
 - (double)imuAge { return NSProcessInfo.processInfo.systemUptime - _lastImuWall; }
 
 // Tinh tan so mau (goi tu luong chinh ~1 lan/giay)
@@ -156,6 +184,19 @@
     _lastImuWall = NSProcessInfo.processInfo.systemUptime;
     _f.sigScale = _responseScale;
     paf_imu(&_f, ua, gr, rr, ts);
+    // HOC THICH NGHI: chi hoc khi da hoc huong xe + GPS tot (du lieu tin cay)
+    double ldt = _learnLastTs > 0 ? ts - _learnLastTs : 0.01;
+    _learnLastTs = ts;
+    if (_learnEnabled) pal_update(&_learn, _f.v * 3.6, _f.aLongRaw, ldt, _f.calibrated && _f.gpsOk && !_f.stationary);
+    if (++_learnN % 100 == 0) {           // ~1 lan/giay
+        [self pushLearnToSynth];
+        PALearn copy = _learn;
+        BOOL save = _learnN % 3000 == 0;  // ~30 giay luu mot lan
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self->_learned = copy;
+            if (save) [NSUserDefaults.standardUserDefaults setObject:[NSData dataWithBytes:&copy length:sizeof(PALearn)] forKey:@"learn.v1"];
+        });
+    }
     double trim = 1.0 + _speedTrim;
 
     if (_feedSynth) {

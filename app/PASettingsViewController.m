@@ -1,11 +1,13 @@
 #import "PASettingsViewController.h"
 #import "PAEngine.h"
+#import "PAMotion.h"
 #import "PAUpdater.h"
 #import "PATheme.h"
 #import "PACalibrationViewController.h"
 #import "PALog.h"
+#import "PALearnViewController.h"
 
-typedef NS_ENUM(NSInteger, PASec) { SecSound, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
+typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
 
 @implementation PASettingsViewController
 
@@ -39,6 +41,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecRun, SecTest, SecStatus, SecUpd
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
         case SecSound: return 6;
+        case SecLearn: return 2;
         case SecRun: return 2;
         case SecTest: return 2;
         case SecStatus: return 3;
@@ -48,12 +51,13 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecRun, SecTest, SecStatus, SecUpd
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s {
-    return @[@"Âm thanh", @"Hoạt động", @"Thử khi đỗ xe", @"Quyền & cảm biến", @"Cập nhật"][s];
+    return @[@"Âm thanh", @"Học thích nghi", @"Hoạt động", @"Thử khi đỗ xe", @"Quyền & cảm biến", @"Cập nhật"][s];
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     switch (s) {
         case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.\n\"Hiệu ứng tiếng từ phía sau\" làm tiếng trầm và vang như vọng từ ống xả sau xe. Muốn tiếng phát hẳn từ loa sau, chỉnh Fader về phía sau trong cài đặt âm thanh của xe.";
+        case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi chỉnh tiếng pô, điểm sang số cho khớp. Học hoàn toàn trên iPhone.";
         case SecRun: return @"Bật mục này để xe tự nổ máy mỗi khi iPhone kết nối Apple CarPlay và tắt máy khi ngắt kết nối.";
         case SecTest: return @"Chỉ dùng khi xe đang đỗ. Kéo thanh tốc độ để nghe sang số mà không cần chạy xe.";
         case SecStatus: return @"Gắn iPhone cố định trên giá đỡ. Lần đầu lái, tăng tốc và phanh vài lần để máy tự học hướng xe.";
@@ -131,6 +135,11 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 3) return [self switchCell:@"Tiếng \"bụp\" khi lên số" icon:@"arrow.up.circle.fill" on:e.shiftPopEnabled tag:11];
             if (ip.row == 4) return [self switchCell:@"Tự tăng âm lượng theo tốc độ" icon:@"speaker.wave.3.fill" on:e.autoVolume tag:16];
             return [self switchCell:@"Hiệu ứng tiếng từ phía sau" icon:@"speaker.wave.2.fill" on:e.rearEffect tag:17];
+        case SecLearn: {
+            if (ip.row == 0) return [self switchCell:@"Tự học theo xe và cách lái" icon:@"brain" on:e.learnEnabled tag:18];
+            PALearn l = ((PAMotion *)e.motion).learned;
+            return [self infoCell:@"Hồ sơ xe đã học" detail:[NSString stringWithFormat:@"%.0f%% · 0–100 ~%.1f s", pal_confidence(&l) * 100, pal_zero_to_100(&l)] icon:@"chart.line.uptrend.xyaxis" tappable:YES];
+        }
         case SecRun:
             if (ip.row == 0) return [self switchCell:@"Bật pô ảo" icon:@"power" on:e.enabled tag:12];
             return [self switchCell:@"Tự nổ máy khi kết nối CarPlay" icon:@"car.fill" on:e.onlyWithCarPlay tag:13];
@@ -161,6 +170,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     if (ip.section == SecStatus && ip.row == 0) {
         [PAEngine.shared requestLocationPermission];
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
+    } else if (ip.section == SecLearn && ip.row == 1) {
+        [self.navigationController pushViewController:[PALearnViewController new] animated:YES];
     } else if (ip.section == SecStatus && ip.row == 2) {
         NSURL *u = PALogFileURL();
         if (![NSFileManager.defaultManager fileExistsAtPath:u.path]) PALog(@"(nhat ky trong)");
@@ -190,6 +201,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         case 13: e.onlyWithCarPlay = s.on; break;
         case 16: e.autoVolume = s.on; break;
         case 17: e.rearEffect = s.on; break;
+        case 18: e.learnEnabled = s.on; break;
         case 14:
             e.testMode = s.on;
             [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:1 inSection:SecTest]] withRowAnimation:UITableViewRowAnimationNone];

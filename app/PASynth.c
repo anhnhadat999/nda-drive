@@ -61,6 +61,13 @@ void pa_init(PASynth *s) {
     s->rng = 0x9E3779B9u;
 }
 
+static double learned_cap(PASynth *s, double v) {
+    static const double MID[5] = {10, 35, 65, 95, 130};
+    if (v <= MID[0]) return s->learnCap[0];
+    for (int i = 0; i < 4; i++) if (v <= MID[i + 1]) { double w = (v - MID[i]) / (MID[i + 1] - MID[i]); return s->learnCap[i] * (1 - w) + s->learnCap[i + 1] * w; }
+    return s->learnCap[4];
+}
+
 static double rpm_at(double speed, int g) { return speed / KMH_PER_1000[g] * 1000.0; }
 
 // ---------- vat ly (moi buffer) ----------
@@ -97,6 +104,8 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     double rpmN0 = fmin(1, s->rpm / p->redline);
     double tq = 0.72 + 0.28 * sin(M_PI * rpmN0);                       // duong cong momen xoan
     double aMax = GEAR_ACC[s->gear] / 3.6 * p->power * tq * 1.8;       // gia toc toi da o so hien tai (xe the thao)
+    if (s->learnOn && s->learnCap[1] > 0.3)                             // da hoc: dung do boc THAT cua xe
+        aMax = learned_cap(s, s->speed) * (0.85 + 0.15 * tq / 0.86) * 1.05;
     double load;
     if (s->speed < 1) load = aMs > 0.3 ? clampd(aReq / aMax, 0.3, 1) : 0.1;   // dung yen / bat dau lan banh
     else if (aMs < -0.6 && aReq < 0.05) load = 0;                              // nha ga, phanh: dong co ghim
@@ -112,7 +121,10 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     // hop so
     s->shiftT += dt;
     if (s->speed < 3) s->gear = 0;
-    double up = p->idle + (p->redline * 0.96 - p->idle) * (0.42 + 0.58 * s->load);
+    double shiftK = 0.42 + 0.58 * s->load;
+    if (s->learnOn) shiftK *= 0.88 + 0.24 * s->learnSport;              // lai the thao: giu so lau hon
+    if (shiftK > 1) shiftK = 1;
+    double up = p->idle + (p->redline * 0.96 - p->idle) * shiftK;
     if (s->gear < 5 && rpm_at(s->speed, s->gear) > up && s->shiftT > 0.6) {
         s->gear++; s->shiftT = 0;
         s->cut = 0.11;

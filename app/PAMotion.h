@@ -2,6 +2,7 @@
 #import <CoreLocation/CoreLocation.h>
 #import "PAFusion.h"
 #import "PASynth.h"
+#import "PALearn.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -22,7 +23,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (atomic) double responseScale;      // 0.6 on dinh, 1 can bang, 1.6 nhanh
 - (void)resetCalibration;
 - (void)restartSensors;
-- (void)updateRates;                       // khoi dong lai cam bien chuyen dong (khi iOS dung gui so lieu)
+- (void)updateRates;
+@property (nonatomic) BOOL learnEnabled;
+@property (nonatomic, readonly) PALearn learned;    // ban sao ho so da hoc (cap nhat ~1 lan/giay)
+- (void)resetLearning;                       // khoi dong lai cam bien chuyen dong (khi iOS dung gui so lieu)
 @property (nonatomic, readonly) double imuAge, gpsAge;   // so giay ke tu lan nhan so lieu cuoi
 @property (nonatomic, readonly) BOOL gpsOnlyFallback;   // dang dung thang GPS vi cam bien dung
 // So lieu tho cho o thong so (cap nhat ~5 lan/giay tren luong chinh)
