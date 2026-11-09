@@ -197,6 +197,14 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
                     }
                     UIActivityViewController *av = [[UIActivityViewController alloc] initWithActivityItems:@[zip] applicationActivities:nil];
                     av.popoverPresentationController.sourceView = [tv cellForRowAtIndexPath:ip];
+                    av.completionWithItemsHandler = ^(UIActivityType t, BOOL ok, NSArray *items, NSError *shareErr) {
+                        if (!shareErr) return;
+                        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Chia sẻ bị lỗi"
+                            message:[NSString stringWithFormat:@"Tệp báo cáo vẫn đã được lưu. Mở Filza, vào /var/mobile/Documents/NDADrive-bao-cao để gửi tệp .zip.\n(%@)", shareErr.localizedDescription]
+                            preferredStyle:UIAlertControllerStyleAlert];
+                        [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+                        [self presentViewController:a animated:YES completion:nil];
+                    };
                     [self presentViewController:av animated:YES completion:nil];
                 }];
             }];

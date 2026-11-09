@@ -57,7 +57,7 @@ static void PAExceptionHandler(NSException *e) {
     return self;
 }
 
-- (NSURL *)docs { return [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject; }
+- (NSURL *)docs { return PADataDir(); }
 - (NSURL *)crashDir { NSURL *u = [[self docs] URLByAppendingPathComponent:@"crashes" isDirectory:YES]; [NSFileManager.defaultManager createDirectoryAtURL:u withIntermediateDirectories:YES attributes:nil error:nil]; return u; }
 
 - (void)installCrashHandlers {
@@ -176,11 +176,12 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         }];
         rep[@"stats_session"] = st;
         rep[@"packages"] = [self installedPackages];
+        rep[@"storage_dir"] = PADataDir().path ?: @"";
 
         NSFileManager *fm = NSFileManager.defaultManager;
         NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyyMMdd_HHmmss";
         NSString *name = [NSString stringWithFormat:@"NDADrive-bao-cao-%@", [df stringFromDate:[NSDate date]]];
-        NSURL *dir = [[NSURL fileURLWithPath:NSTemporaryDirectory()] URLByAppendingPathComponent:name isDirectory:YES];
+        NSURL *dir = [PATempDir() URLByAppendingPathComponent:name isDirectory:YES];
         [fm removeItemAtURL:dir error:nil];
         [fm createDirectoryAtURL:dir withIntermediateDirectories:YES attributes:nil error:nil];
         NSData *js = [NSJSONSerialization dataWithJSONObject:rep options:NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys error:nil];
@@ -208,7 +209,8 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         __block NSURL *zipOut = nil; __block NSString *errStr = nil;
         NSMutableArray<NSURL *> *outDirs = [NSMutableArray array];
         NSURL *dd = [self docs]; if (dd) [outDirs addObject:[dd URLByAppendingPathComponent:@"bao-cao" isDirectory:YES]];
-        [outDirs addObject:[[NSURL fileURLWithPath:NSTemporaryDirectory()] URLByAppendingPathComponent:@"bao-cao-xuat" isDirectory:YES]];
+        [outDirs addObject:[NSURL fileURLWithPath:@"/var/mobile/Documents/NDADrive-bao-cao" isDirectory:YES]];
+        [outDirs addObject:[PATempDir() URLByAppendingPathComponent:@"bao-cao-xuat" isDirectory:YES]];
         for (NSURL *exp in outDirs) {
             [fm createDirectoryAtURL:exp withIntermediateDirectories:YES attributes:nil error:nil];
             for (NSURL *oldz in [fm contentsOfDirectoryAtURL:exp includingPropertiesForKeys:nil options:0 error:nil]) [fm removeItemAtURL:oldz error:nil];
@@ -233,7 +235,15 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
             [fm removeItemAtURL:dst error:nil];
         }
         [fm removeItemAtURL:dir error:nil];
-        PALog(@"Xuat bao cao: %@", zipOut ? zipOut.lastPathComponent : errStr);
+        if (zipOut) {   // ban sao du phong mo duoc bang Filza neu bang chia se loi
+            NSURL *pub = [NSURL fileURLWithPath:@"/var/mobile/Documents/NDADrive-bao-cao" isDirectory:YES];
+            if (![zipOut.path hasPrefix:pub.path]) {
+                [fm createDirectoryAtURL:pub withIntermediateDirectories:YES attributes:nil error:nil];
+                for (NSURL *oldz in [fm contentsOfDirectoryAtURL:pub includingPropertiesForKeys:nil options:0 error:nil]) [fm removeItemAtURL:oldz error:nil];
+                [fm copyItemAtURL:zipOut toURL:[pub URLByAppendingPathComponent:zipOut.lastPathComponent] error:nil];
+            }
+        }
+        PALog(@"Xuat bao cao: %@ (thu muc du lieu %@)", zipOut ? zipOut.path : errStr, PADataDir().path);
         dispatch_async(dispatch_get_main_queue(), ^{ done(zipOut, zipOut ? nil : (errStr ?: @"Không tạo được tệp")); });
     });
 }

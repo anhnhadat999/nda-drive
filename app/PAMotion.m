@@ -130,8 +130,7 @@
 }
 
 + (NSURL *)tripsFolder {
-    NSURL *doc = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
-    NSURL *u = [doc URLByAppendingPathComponent:@"trips" isDirectory:YES];
+    NSURL *u = [PADataDir() URLByAppendingPathComponent:@"trips" isDirectory:YES];
     [NSFileManager.defaultManager createDirectoryAtURL:u withIntermediateDirectories:YES attributes:nil error:nil];
     return u;
 }

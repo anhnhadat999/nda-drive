@@ -1,9 +1,38 @@
 #import "PALog.h"
 
-NSURL *PALogFileURL(void) {
-    NSURL *doc = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
-    return [doc URLByAppendingPathComponent:@"ndadrive-log.txt"];
+// Thu muc du lieu GHI DUOC THAT. App cai qua jailbreak (/var/jb/Applications) duoc iOS tra ve
+// duong dan "Containers/Data/Application/..." nhung thu muc do khong ton tai -> moi lan ghi deu loi.
+// Thu lan luot va kiem tra bang cach ghi thu mot tep.
+static BOOL writable(NSURL *u) {
+    NSFileManager *fm = NSFileManager.defaultManager;
+    [fm createDirectoryAtURL:u withIntermediateDirectories:YES attributes:nil error:nil];
+    NSURL *probe = [u URLByAppendingPathComponent:@".probe"];
+    BOOL ok = [[NSData dataWithBytes:"1" length:1] writeToURL:probe options:0 error:nil];
+    [fm removeItemAtURL:probe error:nil];
+    return ok;
 }
+NSURL *PADataDir(void) {
+    static NSURL *dir; static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSMutableArray<NSURL *> *c = [NSMutableArray array];
+        NSURL *doc = [NSFileManager.defaultManager URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask].firstObject;
+        if (doc) [c addObject:doc];
+        [c addObject:[NSURL fileURLWithPath:@"/var/mobile/Library/NDADrive" isDirectory:YES]];
+        [c addObject:[NSURL fileURLWithPath:@"/var/jb/var/mobile/Library/NDADrive" isDirectory:YES]];
+        [c addObject:[NSURL fileURLWithPath:@"/var/mobile/Documents/NDADrive" isDirectory:YES]];
+        [c addObject:[[NSURL fileURLWithPath:NSTemporaryDirectory()] URLByAppendingPathComponent:@"NDADrive" isDirectory:YES]];
+        [c addObject:[NSURL fileURLWithPath:@"/tmp/NDADrive" isDirectory:YES]];
+        for (NSURL *u in c) if (writable(u)) { dir = u; break; }
+        if (!dir) dir = c.firstObject;
+    });
+    return dir;
+}
+NSURL *PATempDir(void) {
+    NSURL *t = [PADataDir() URLByAppendingPathComponent:@"tmp" isDirectory:YES];
+    [NSFileManager.defaultManager createDirectoryAtURL:t withIntermediateDirectories:YES attributes:nil error:nil];
+    return t;
+}
+NSURL *PALogFileURL(void) { return [PADataDir() URLByAppendingPathComponent:@"ndadrive-log.txt"]; }
 
 void PALog(NSString *fmt, ...) {
     va_list ap; va_start(ap, fmt);
