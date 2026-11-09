@@ -91,6 +91,7 @@ void pa_init(PASynth *s) {
     s->gpsSpeed = -1; s->gpsAge = 99; s->loadA = 0.2; s->load = 0.2;
     s->rng = 0x9E3779B9u;
     s->rearAmt = 0.7;
+    s->subAmt = 0.6;
 }
 
 static double learned_cap(PASynth *s, double v) {
@@ -159,7 +160,7 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     if (shiftK > 1) shiftK = 1;
     double up = p->idle + (p->redline * 0.96 - p->idle) * shiftK;
     if (s->gear < 5 && rpm_at(s->speed, s->gear) > up && s->shiftT > 0.6) {
-        s->gear++; s->shiftT = 0;
+        s->gear++; s->shiftT = 0; s->thumpReq = 1;
         s->cut = 0.11;
         if (s->shiftPop && s->load > 0.55) s->popReq = 1;
     } else if (s->gear > 0 && rpm_at(s->speed, s->gear) < fmax(p->idle * 1.35, up * 0.42) && s->shiftT > 0.6) {
@@ -215,7 +216,8 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
     double toneK = 0.6 + tone * 0.9;
     double popScale = s->learnOn ? 0.7 + 0.6 * sport : 1.0;
     if (s->bovPending && p->turbo) { s->bov = 1; s->bovPending = 0; }
-    if (s->popReq) { s->popEnv = 1; s->popAmp = 0.9 + 0.8 * frand(s); s->popReq = 0; }
+    if (s->thumpReq) { s->thumpEnv = 1; s->thumpPh = 0; s->thumpReq = 0; }
+    if (s->popReq) { s->thumpEnv = fmax(s->thumpEnv, 0.7); s->popEnv = 1; s->popAmp = 0.9 + 0.8 * frand(s); s->popReq = 0; }
 
     if (s->state == PA_OFF && s->rpmA < 30 && s->popEnv < 0.001 && s->bov < 0.001) {
         memset(out, 0, sizeof(float) * n);
@@ -318,6 +320,21 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
             s->dly[s->dIdx] = (float)(x + d13 * 0.25);
             s->dIdx = (s->dIdx + 1) & 2047;
             o = x * (1 - 0.15 * ra) + d7 * 0.28 * ra + d13 * 0.2 * ra;
+        }
+        if (s->subAmt > 0.01) {
+            // Lop sieu tram cho sub gam ghe (< 90 Hz): tan so no ha xuong quang tam cho nam trong dai sub,
+            // to theo tai; them cu "thump" khi len so / no po -> cam giac rung qua ghe
+            double fs = f; while (fs > 90) fs *= 0.5;
+            s->subPh += fs / sr; if (s->subPh >= 1) s->subPh -= 1;
+            double run = clampd(rpmA / 400.0, 0, 1);
+            double sub = sin(s->subPh * TWO_PI) * (0.06 + 0.16 * loadA) * run * (cutting ? 0.3 : 1);
+            if (s->thumpEnv > 0.001) {
+                s->thumpEnv *= exp(-1 / (sr * 0.09));
+                s->thumpPh += 42.0 / sr; if (s->thumpPh >= 1) s->thumpPh -= 1;
+                sub += sin(s->thumpPh * TWO_PI) * s->thumpEnv * 0.35;
+            }
+            s->subLp += (sub - s->subLp) * (TWO_PI * 110 / sr);   // chi giu phan duoi ~110 Hz
+            o += s->subLp * s->subAmt;
         }
         if (s->corrOn) {
             if (s->cSr != sr || s->cVer != s->corrVer) {

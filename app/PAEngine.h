@@ -29,6 +29,7 @@ extern NSString *const PAEngineDidUpdateNotification;
 @property (nonatomic) BOOL autoVolume;           // tu tang am luong theo toc do
 @property (nonatomic) BOOL rearEffect;
 @property (nonatomic) double rearAmount;
+@property (nonatomic) double subAmount;           // muc rung sub gam ghe 0..1
 @property (nonatomic) BOOL acousticCorrection;   // ap dung bu khoang xe tu ket qua do
 - (void)pauseForMeasurement;
 - (void)resumeAfterMeasurement;

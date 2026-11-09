@@ -44,7 +44,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
         [d registerDefaults:@{ @"enabled": @YES, @"onlyWithCarPlay": @YES, @"preset": @"gt3",
                                @"volume": @0.7, @"tone": @0.5, @"pops": @YES, @"shiftPop": @YES,
-                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7, @"acousticCorr": @YES }];
+                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7, @"subAmt": @0.6, @"acousticCorr": @YES }];
         _enabled = [d boolForKey:@"enabled"];
         _onlyWithCarPlay = [d boolForKey:@"onlyWithCarPlay"];
         _presetKey = [d stringForKey:@"preset"] ?: @"gt3";
@@ -59,6 +59,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _learnEnabled = [d boolForKey:@"learn"];
         _recordEnabled = [d boolForKey:@"record"];
         _rearAmount = [d doubleForKey:@"rearAmt"];
+        _subAmount = [d doubleForKey:@"subAmt"];
         _acousticCorrection = [d boolForKey:@"acousticCorr"];
         [self applySettings];
     }
@@ -80,6 +81,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     _synth.autoVol = _autoVolume;
     _synth.rearFx = _rearEffect;
     _synth.rearAmt = _rearAmount;
+    _synth.subAmt = _subAmount;
     PAAcousticResult ar;
     BOOL hasAr = [PAAcousticMeasure loadSaved:&ar];
     if (hasAr) { for (int k = 0; k < 9; k++) _synth.corrDb[k] = ar.corrDb[k]; _synth.corrVer++; }
@@ -114,6 +116,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     [self startAudio];
     [self applySettings];
 }
+- (void)setSubAmount:(double)v { _subAmount = v; [self save:@(v) key:@"subAmt"]; [self applySettings]; }
 - (void)setRearAmount:(double)v { _rearAmount = v; [self save:@(v) key:@"rearAmt"]; [self applySettings]; }
 - (void)setRecordEnabled:(BOOL)v { _recordEnabled = v; [self save:@(v) key:@"record"]; [self applySettings]; if (!v) [_motion stopTrip]; }
 - (void)setLearnEnabled:(BOOL)v { _learnEnabled = v; [self save:@(v) key:@"learn"]; [self applySettings]; }

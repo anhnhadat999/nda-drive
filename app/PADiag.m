@@ -3,6 +3,8 @@
 #import "PAMotion.h"
 #import "PALog.h"
 #import "PAAcousticMeasure.h"
+#import "PAZip.h"
+#include <errno.h>
 #import <UIKit/UIKit.h>
 #import <CoreLocation/CoreLocation.h>
 #include <sys/utsname.h>
@@ -201,18 +203,35 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         }
         [@"Gửi tệp .zip này cho Claude trong khung chat để phân tích và cải thiện NDA Drive.\nKhông chứa tọa độ GPS, tên hay số điện thoại.\n" writeToURL:[dir URLByAppendingPathComponent:@"DOC-TOI.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
 
-        // Nen thanh .zip bang co che cua iOS (NSFileCoordinator "ForUploading")
+        // Nen thanh .zip bang bo nen rieng (PAZip + zlib). Co che "ForUploading" cua iOS
+        // khong hoat dong voi app cai qua jailbreak (bao "Khong the mo tep").
         __block NSURL *zipOut = nil; __block NSString *errStr = nil;
-        NSError *cErr = nil;
-        [[NSFileCoordinator new] coordinateReadingItemAtURL:dir options:NSFileCoordinatorReadingForUploading error:&cErr byAccessor:^(NSURL *zipURL) {
-            NSURL *exp = [[self docs] URLByAppendingPathComponent:@"bao-cao" isDirectory:YES];
+        NSMutableArray<NSURL *> *outDirs = [NSMutableArray array];
+        NSURL *dd = [self docs]; if (dd) [outDirs addObject:[dd URLByAppendingPathComponent:@"bao-cao" isDirectory:YES]];
+        [outDirs addObject:[[NSURL fileURLWithPath:NSTemporaryDirectory()] URLByAppendingPathComponent:@"bao-cao-xuat" isDirectory:YES]];
+        for (NSURL *exp in outDirs) {
             [fm createDirectoryAtURL:exp withIntermediateDirectories:YES attributes:nil error:nil];
             for (NSURL *oldz in [fm contentsOfDirectoryAtURL:exp includingPropertiesForKeys:nil options:0 error:nil]) [fm removeItemAtURL:oldz error:nil];
             NSURL *dst = [exp URLByAppendingPathComponent:[name stringByAppendingPathExtension:@"zip"]];
-            NSError *e2 = nil;
-            if ([fm copyItemAtURL:zipURL toURL:dst error:&e2]) zipOut = dst; else errStr = e2.localizedDescription;
-        }];
-        if (cErr) errStr = cErr.localizedDescription;
+            PAZip *z = pazip_open(dst.fileSystemRepresentation);
+            if (!z) { errStr = [NSString stringWithFormat:@"Không ghi được vào %@ (lỗi %d)", exp.path, errno]; continue; }
+            int ok = 1, nFiles = 0;
+            NSDirectoryEnumerator *en = [fm enumeratorAtURL:dir includingPropertiesForKeys:@[NSURLIsDirectoryKey] options:0 errorHandler:nil];
+            NSString *base = dir.URLByStandardizingPath.path;
+            for (NSURL *u in en) {
+                NSNumber *isDir = nil; [u getResourceValue:&isDir forKey:NSURLIsDirectoryKey error:nil];
+                if (isDir.boolValue) continue;
+                NSString *full = u.URLByStandardizingPath.path;
+                NSString *rel = [full hasPrefix:base] ? [full substringFromIndex:base.length + 1] : u.lastPathComponent;
+                NSData *data = [NSData dataWithContentsOfURL:u] ?: [NSData data];
+                if (!pazip_add(z, [name stringByAppendingPathComponent:rel].UTF8String, data.bytes, data.length)) { ok = 0; break; }
+                nFiles++;
+            }
+            if (!pazip_close(z)) ok = 0;
+            if (ok && nFiles > 0) { zipOut = dst; errStr = nil; break; }
+            errStr = [NSString stringWithFormat:@"Lỗi ghi tệp nén (%d tệp, lỗi %d)", nFiles, errno];
+            [fm removeItemAtURL:dst error:nil];
+        }
         [fm removeItemAtURL:dir error:nil];
         PALog(@"Xuat bao cao: %@", zipOut ? zipOut.lastPathComponent : errStr);
         dispatch_async(dispatch_get_main_queue(), ^{ done(zipOut, zipOut ? nil : (errStr ?: @"Không tạo được tệp")); });

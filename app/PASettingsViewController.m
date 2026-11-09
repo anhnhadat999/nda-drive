@@ -43,7 +43,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
-        case SecSound: return 8;
+        case SecSound: return 9;
         case SecLearn: return 4;
         case SecRun: return 2;
         case SecTest: return 2;
@@ -59,7 +59,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     switch (s) {
-        case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.\n\"Hiệu ứng tiếng từ phía sau\" lọc theo các dải tần mà tai người gắn với âm thanh phía sau (tăng ~1 kHz và ~11 kHz, giảm ~4 kHz), thêm tiếng ù qua thân xe và phản xạ khoang xe. Muốn tiếng phát hẳn từ loa sau, chỉnh Fader về phía sau trong cài đặt âm thanh của xe.";
+        case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.\n\"Hiệu ứng tiếng từ phía sau\" lọc theo các dải tần mà tai người gắn với âm thanh phía sau (tăng ~1 kHz và ~11 kHz, giảm ~4 kHz), thêm tiếng ù qua thân xe và phản xạ khoang xe. Muốn tiếng phát hẳn từ loa sau, chỉnh Fader về phía sau trong cài đặt âm thanh của xe.\n\"Rung sub gầm ghế\" thêm lớp siêu trầm (dưới 90 Hz) theo nhịp nổ máy và cú \"thụp\" khi lên số. Loa sub của xe tự nhận dải này; tăng mức Bass/Sub trong cài đặt âm thanh xe nếu muốn rung mạnh hơn.";
         case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi chỉnh tiếng pô, điểm sang số cho khớp. Học hoàn toàn trên iPhone. \"Lịch sử chuyến đi\" lưu số liệu từng chuyến để gửi phân tích, tinh chỉnh tiếng pô cho đúng xe điện của bạn.";
         case SecRun: return @"Bật mục này để xe tự nổ máy mỗi khi iPhone kết nối Apple CarPlay và tắt máy khi ngắt kết nối.";
         case SecTest: return @"Chỉ dùng khi xe đang đỗ. Kéo thanh tốc độ để nghe sang số mà không cần chạy xe.";
@@ -138,6 +138,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 3) return [self switchCell:@"Tiếng \"bụp\" khi lên số" icon:@"arrow.up.circle.fill" on:e.shiftPopEnabled tag:11];
             if (ip.row == 4) return [self switchCell:@"Tự tăng âm lượng theo tốc độ" icon:@"speaker.wave.3.fill" on:e.autoVolume tag:16];
             if (ip.row == 5) return [self switchCell:@"Hiệu ứng tiếng từ phía sau" icon:@"speaker.wave.2.fill" on:e.rearEffect tag:17];
+            if (ip.row == 8) return [self sliderCell:@"Rung sub gầm ghế" value:e.subAmount max:1 tag:5 detail:[NSString stringWithFormat:@"%.0f%%", e.subAmount * 100] enabled:YES];
             if (ip.row == 7) return [self infoCell:@"Đo âm học khoang xe" detail:(e.acousticCorrection ? @"bù: bật" : nil) icon:@"waveform.and.mic" tappable:YES];
             return [self sliderCell:@"Cường độ cảm giác phía sau" value:e.rearAmount max:1 tag:4 detail:[NSString stringWithFormat:@"%.0f%%", e.rearAmount * 100] enabled:e.rearEffect];
         case SecLearn: {
@@ -238,6 +239,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     UILabel *d = [s.superview viewWithTag:900 + s.tag];
     if (s.tag == 1) { e.volume = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 2) { e.toneAmount = s.value; d.text = toneText(s.value); }
+    else if (s.tag == 5) { e.subAmount = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 4) { e.rearAmount = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 3) { e.testSpeedKmh = round(s.value); d.text = [NSString stringWithFormat:@"%.0f km/h", round(s.value)]; }
 }

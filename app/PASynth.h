@@ -38,6 +38,7 @@ typedef struct {
     volatile int autoVol;
     volatile int rearFx;          // mo phong tieng truyen tu ong xa phia sau qua khoang xe
     volatile double rearAmt;      // cuong do cam giac phia sau 0..1
+    volatile double subAmt;       // lop tram cho loa sub gam ghe 0..1
     volatile int corrOn;          // bu dap ung khoang xe (tu ket qua do am hoc)
     volatile double corrDb[9];    // 63 Hz .. 16 kHz
     volatile int corrVer;         // tang len moi khi doi corrDb
@@ -59,6 +60,7 @@ typedef struct {
 
     // noi bo
     double stateT, accel, cut, master, shiftT, blip, overT;
+    double subPh, subLp, thumpEnv, thumpPh; int thumpReq;
     double ph, phHalf, env, rpmA, loadA, lpY, lpPop, popEnv, popAmp;
     double whPh, bov, bovLp, noiseLp;
     double svfLow[3], svfBand[3], intLow, intBand;
