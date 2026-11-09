@@ -7,6 +7,7 @@
 #import "PALog.h"
 #import "PALearnViewController.h"
 #import "PATripsViewController.h"
+#import "PADiag.h"
 
 typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
 
@@ -61,7 +62,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
         case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi chỉnh tiếng pô, điểm sang số cho khớp. Học hoàn toàn trên iPhone. \"Lịch sử chuyến đi\" lưu số liệu từng chuyến để gửi phân tích, tinh chỉnh tiếng pô cho đúng xe điện của bạn.";
         case SecRun: return @"Bật mục này để xe tự nổ máy mỗi khi iPhone kết nối Apple CarPlay và tắt máy khi ngắt kết nối.";
         case SecTest: return @"Chỉ dùng khi xe đang đỗ. Kéo thanh tốc độ để nghe sang số mà không cần chạy xe.";
-        case SecStatus: return @"Gắn iPhone cố định trên giá đỡ. Lần đầu lái, tăng tốc và phanh vài lần để máy tự học hướng xe.";
+        case SecStatus: return @"\"Xuất báo cáo cho Claude\" đóng gói nhật ký, bộ đếm sự kiện, chất lượng cảm biến, lỗi thoát app và chuyến đi gần đây thành 1 tệp. Không chứa tọa độ, tên hay số điện thoại. Gửi tệp vào khung chat với Claude để phân tích.\nGắn iPhone cố định trên giá đỡ. Lần đầu lái, tăng tốc và phanh vài lần để máy tự học hướng xe.";
         case SecUpdate: return @"Thêm nguồn NDA Drive vào Sileo một lần. Các bản sau sẽ tự hiện trong mục cập nhật của Sileo.";
     }
     return nil;
@@ -153,7 +154,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         case SecStatus:
             if (ip.row == 0) return [self infoCell:@"Vị trí" detail:e.locationStatusText icon:@"location.fill" tappable:YES];
             if (ip.row == 1) return [self infoCell:@"Căn chỉnh cảm biến" detail:e.sensorStatusText icon:@"gyroscope" tappable:YES];
-            return [self infoCell:@"Gửi nhật ký chẩn đoán" detail:nil icon:@"doc.text.magnifyingglass" tappable:YES];
+            return [self infoCell:@"Xuất báo cáo cho Claude" detail:@"1 tệp .zip" icon:@"doc.zipper" tappable:YES];
         case SecUpdate:
             if (ip.row == 0) {
                 NSString *d = u.checking ? @"Đang kiểm tra…" :
@@ -179,13 +180,22 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     } else if (ip.section == SecLearn && ip.row == 1) {
         [self.navigationController pushViewController:[PALearnViewController new] animated:YES];
     } else if (ip.section == SecStatus && ip.row == 2) {
-        NSURL *u = PALogFileURL();
-        if (![NSFileManager.defaultManager fileExistsAtPath:u.path]) PALog(@"(nhat ky trong)");
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            UIActivityViewController *av = [[UIActivityViewController alloc] initWithActivityItems:@[PALogFileURL()] applicationActivities:nil];
-            av.popoverPresentationController.sourceView = [tv cellForRowAtIndexPath:ip];
-            [self presentViewController:av animated:YES completion:nil];
-        });
+        UIAlertController *wait = [UIAlertController alertControllerWithTitle:@"Đang đóng gói báo cáo…" message:@"Nhật ký, bộ đếm sự kiện, chất lượng cảm biến, lỗi thoát app, tóm tắt chuyến đi." preferredStyle:UIAlertControllerStyleAlert];
+        [self presentViewController:wait animated:YES completion:^{
+            [PADiag.shared buildReport:^(NSURL *zip, NSString *err) {
+                [wait dismissViewControllerAnimated:YES completion:^{
+                    if (!zip) {
+                        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Không tạo được báo cáo" message:err preferredStyle:UIAlertControllerStyleAlert];
+                        [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+                        [self presentViewController:a animated:YES completion:nil];
+                        return;
+                    }
+                    UIActivityViewController *av = [[UIActivityViewController alloc] initWithActivityItems:@[zip] applicationActivities:nil];
+                    av.popoverPresentationController.sourceView = [tv cellForRowAtIndexPath:ip];
+                    [self presentViewController:av animated:YES completion:nil];
+                }];
+            }];
+        }];
     } else if (ip.section == SecStatus && ip.row == 1) {
         [self.navigationController pushViewController:[PACalibrationViewController new] animated:YES];
     } else if (ip.section == SecUpdate && ip.row == 0) {

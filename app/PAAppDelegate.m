@@ -5,6 +5,7 @@
 #import "PAEngine.h"
 #import "PAUpdater.h"
 #import "PATheme.h"
+#import "PADiag.h"
 
 @implementation PAAppDelegate
 
@@ -38,6 +39,7 @@ static UINavigationController *nav(UIViewController *vc) {
 }
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    [PADiag.shared installCrashHandlers];   // bat loi thoat app + dem su kien (bao cao cho Claude)
     // Khoi dong bo may ngay ca khi app duoc mo ngam (tu tweak hoac tu GPS)
     [PAEngine.shared boot];
     [self applyAppearance];

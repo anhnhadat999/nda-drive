@@ -1,6 +1,7 @@
 #import "PAMotion.h"
 #import <CoreMotion/CoreMotion.h>
 #import "PALog.h"
+#import "PADiag.h"
 
 @implementation PAMotion {
     PASynth *_synth;
@@ -87,7 +88,7 @@
                                                  toQueue:_q
                                              withHandler:^(CMDeviceMotion *m, NSError *err) {
             if (m) [ws handleMotion:m];
-            else if (err) { typeof(self) ss = ws; if (ss) ss->_lastError = err.localizedDescription; PALog(@"deviceMotion loi: %@", err.localizedDescription); }
+            else if (err) { typeof(self) ss = ws; if (ss) ss->_lastError = err.localizedDescription; PALog(@"deviceMotion loi: %@", err.localizedDescription); [PADiag.shared bump:@"imu_error"]; }
         }];
     }
 }
@@ -96,6 +97,7 @@
 - (void)startRawSensors {
     if (!_mm.isAccelerometerAvailable) { _lastError = @"Máy không có gia tốc kế"; return; }
     PALog(@"Khong nhan duoc deviceMotion -> dung gia toc ke tho");
+    [PADiag.shared bump:@"imu_raw_fallback"];
     _rawMode = YES;
     _sourceName = @"Gia tốc kế thô";
     [_mm stopDeviceMotionUpdates];
