@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.18)
+project(ndadrive C)
+# Dung chung ma nguon C voi ban iOS (bo tao tieng, bo hop nhat cam bien, bo hoc)
+set(CORE ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../app)
+add_library(ndacore SHARED nda_jni.c ${CORE}/PASynth.c ${CORE}/PAFusion.c ${CORE}/PALearn.c)
+target_include_directories(ndacore PRIVATE ${CORE})
+target_link_libraries(ndacore m log)
