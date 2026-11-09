@@ -37,7 +37,9 @@ int main(int argc,char**argv){
   PAFusion f; paf_init(&f);
   int wrongcal = argc>3 && atoi(argv[3])==1;
   int stale = argc>3 && atoi(argv[3])==2;
-  int carGps = argc>3 && atoi(argv[3])==3;   // GPS cua xe: 2 s/lan, tre 1,2 s, moc thoi gian = luc NHAN   // GPS kieu xe VF7 qua CarPlay: so lieu bi giu nguyen 1-4 giay
+  int carGps = argc>3 && atoi(argv[3])==3;
+  int knock = argc>3 && atoi(argv[3])==4;   // bam man hinh lam khop bi xoay: 20 do luc dung (t=50) va -15 do khi dang chay (t=72)
+  double phi=0, psi=0;   // GPS cua xe: 2 s/lan, tre 1,2 s, moc thoi gian = luc NHAN   // GPS kieu xe VF7 qua CarPlay: so lieu bi giu nguyen 1-4 giay
   double held=-1; int holdN=0;   // nap san can chinh SAI 40 do (may bi xoay ngang tren gia)
   double trueTheta = mount ? 24.8*M_PI/180 : -28.1*M_PI/180;
   if (wrongcal) { double gv[3]={0,0,-9.81}, gd[3]; mul(Rvd,gv,gd); paf_load_calibration(&f, trueTheta + 40*M_PI/180, gd); }
@@ -50,7 +52,13 @@ int main(int argc,char**argv){
     double v,a,w; int tun; truth(t,&v,&a,&w,&tun);
     double vib = v>0.5?0.18:0.03;
     double accV[3]={a, v*w, 0}, gV3[3]={0,0,-9.81}, rotV[3]={0,0,w};
-    double ad[3],gd[3],rd[3]; mul(Rvd,accV,ad); mul(Rvd,gV3,gd); mul(Rvd,rotV,rd);
+    double dphi=0, dpsi=0;
+    if (knock) { if (t>=50 && t<50.5) dphi=(20*M_PI/180)/0.5; if (t>=72 && t<72.4) dpsi=(-15*M_PI/180)/0.4; phi+=dphi*dt; psi+=dpsi*dt; }
+    double Rcur[3][3]; { double Qx[3][3],Qy[3][3],Q[3][3],QT[3][3]; rotx(phi,Qx);
+      double c=cos(psi),sn=sin(psi); double My[3][3]={{c,0,sn},{0,1,0},{-sn,0,c}}; for(int i=0;i<9;i++)Qy[i/3][i%3]=My[i/3][i%3];
+      mm(Qx,Qy,Q); for(int i=0;i<3;i++)for(int j=0;j<3;j++)QT[i][j]=Q[j][i]; mm(QT,Rvd,Rcur); }
+    double ad[3],gd[3],rd[3]; mul(Rcur,accV,ad); mul(Rcur,gV3,gd); mul(Rcur,rotV,rd);
+    if (knock) { double ex[3]={1,0,0}, ey[3]={0,1,0}; for(int i=0;i<3;i++) rd[i]+= dphi*ex[i] + dpsi*ey[i]; }
     for(int i=0;i<3;i++){ ad[i]+=bias[i]+gauss()*(0.05+vib); rd[i]+=gauss()*0.01; }
     paf_imu(&f,ad,gd,rd,t+1);
     if(t>=nextGps){ nextGps+=carGps?2.0:1.0;
@@ -75,16 +83,23 @@ int main(int argc,char**argv){
   { PAFusion f2; paf_init(&f2); paf_load_calibration(&f2, f.theta, f.gCal);
     double gv[3]={0,0,-9.81}, gd[3], z[3]={0,0,0}; mul(Rvd,gv,gd);
     for(int i=0;i<120;i++) paf_imu(&f2,z,gd,z,500+i*0.01);
-    reuseOk = f2.calibrated && fabs(f2.theta - f.theta) < 1e-9; }
+    reuseOk = knock || (f2.calibrated && fabs(f2.theta - f.theta) < 1e-9); }  // knock: tu the cuoi da khac tu the goc
   { PAFusion f3; paf_init(&f3); paf_load_calibration(&f3, f.theta, f.gCal);
     double Rz2[3][3], R2[3][3]; rotz(40*M_PI/180,Rz2); mm(Rz2,Rvd,R2);   // nghieng may 40 do trong mat phang man hinh
     double gv[3]={0,0,-9.81}, gd[3], z[3]={0,0,0}; mul(R2,gv,gd);
     for(int i=0;i<120;i++) paf_imu(&f3,z,gd,z,500+i*0.01);
-    rejectOk = !f3.calibrated; }
-  printf("  ghi nho can chinh: dung lai=%s, doi goc gan -> hoc lai=%s\n", reuseOk?"OK":"LOI", rejectOk?"OK":"LOI");
+    { double Fv[3]={1,0,0}, Ft[3]; mul(R2,Fv,Ft); double e1[3],e2[3], gu[3]={gd[0],gd[1],gd[2]}; double n=sqrt(gu[0]*gu[0]+gu[1]*gu[1]+gu[2]*gu[2]); for(int i=0;i<3;i++)gu[i]/=n;
+      double d[3]={0,0,-1}; if(fabs(gu[2])>0.8){d[1]=1;d[2]=0;} double k=d[0]*gu[0]+d[1]*gu[1]+d[2]*gu[2]; for(int i=0;i<3;i++)e1[i]=d[i]-k*gu[i];
+      n=sqrt(e1[0]*e1[0]+e1[1]*e1[1]+e1[2]*e1[2]); for(int i=0;i<3;i++)e1[i]/=n; e2[0]=gu[1]*e1[2]-gu[2]*e1[1]; e2[1]=gu[2]*e1[0]-gu[0]*e1[2]; e2[2]=gu[0]*e1[1]-gu[1]*e1[0];
+      double thx=atan2(Ft[0]*e2[0]+Ft[1]*e2[1]+Ft[2]*e2[2], Ft[0]*e1[0]+Ft[1]*e1[1]+Ft[2]*e1[2]);
+      double err=fabs(atan2(sin(thx-f3.theta),cos(thx-f3.theta)))*180/M_PI;
+      printf("  xoay may 40 do tren gia (khi tat app) -> anh xa lai goc: lech %.1f do, danh dau kiem tra lai=%d\n", err, f3.recheck);
+      rejectOk = !f3.calibrated || (err < 25 && f3.recheck); } }
+  printf("  ghi nho can chinh: dung lai=%s, doi goc gan -> anh xa/hoc lai=%s\n", reuseOk?"OK":"LOI", rejectOk?"OK":"LOI");
   double thErr = fabs(atan2(sin(f.theta-trueTheta),cos(f.theta-trueTheta)))*180/M_PI;
   if (wrongcal) printf("  nap can chinh sai 40 do -> sau chuyen di lech con %.1f do\n", thErr);
-  int ok = (!wrongcal || thErr < 8) && reuseOk && rejectOk && sqrt(eF/n) < (wrongcal ? 3.0 : (carGps ? 3.5 : (stale ? 2.6 : 1.8))) && sqrt(eF/n) < sqrt(eG/n) && sqrt(tunErrF/fmax(1,tunN)) < 3.5 && calT > 0 && calT < (carGps ? 40 : 20);
+  int ok = (!wrongcal || thErr < 8) && reuseOk && rejectOk && sqrt(eF/n) < (wrongcal ? 3.0 : (carGps ? 3.5 : (stale ? 2.6 : 1.8))) && sqrt(eF/n) < sqrt(eG/n) && sqrt(tunErrF/fmax(1,tunN)) < 3.5 && calT > 0 && calT < (carGps ? 40 : 20) && (!knock || f.calibrated);
+  if (knock) printf("  may bi xoay tren gia 2 lan (20 do luc dung, -15 do khi dang chay): van giu huong xe=%d\n", f.calibrated);
   if (carGps) printf("  do tre GPS tu uoc luong: %.2f s (that 1.2 s), hoc bang vao cua: %d\n", f.gpsDelay, f.calByTurn);
   printf("  -> %s\n", ok?"DAT":"KHONG DAT");
   return ok?0:1;

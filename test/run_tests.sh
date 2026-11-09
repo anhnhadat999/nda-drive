@@ -28,6 +28,10 @@ echo "== GPS cua xe: 2 s/lan, tre 1,2 s, moc thoi gian luc nhan (tu uoc luong do
 for m in 0 1; do for seed in 1 3 7; do
   "$OUT/fusion" $m $seed 3 | grep -E "KET QUA|tre GPS|->" | tr '\n' ' '; echo; "$OUT/fusion" $m $seed 3 > /dev/null || fail=1
 done; done
+echo "== May bi xoay tren gia khi dang chay (bam man hinh lam khop bi xoay)"
+for m in 0 1; do for seed in 1 3; do
+  "$OUT/fusion" $m $seed 4 | grep -E "KET QUA|bi xoay|->" | tr '\n' ' ' | cut -c1-260; echo; "$OUT/fusion" $m $seed 4 > /dev/null || fail=1
+done; done
 echo "== Bo loc tieng tu phia sau (dap ung tan so)"
 $CC -O2 -Wall -o "$OUT/eq" test/rear_eq_test.c app/PASynth.c -lm
 "$OUT/eq" || fail=1

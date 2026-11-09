@@ -65,7 +65,7 @@ static void kf_update(PAFusion *f, double z, double R, double vRef) {
 
 static void reset_cal(PAFusion *f) {
     f->calibrated = 0; f->theta = 0; f->Sx = f->Sy = f->E = 0; f->calProgress = 0;
-    f->Lx = f->Ly = f->Lc = 0; f->calByTurn = 0;
+    f->Lx = f->Ly = f->Lc = 0; f->calByTurn = 0; f->Fvalid = 0; f->recheck = 0;
 }
 
 void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], const double rot[3], double t) {
@@ -86,16 +86,35 @@ void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], cons
     // dien thoai bi xoay/thao khoi gia do -> hoc lai truc tien
     double gm = norm3(rot);
     if (gm > 0.8) f->moveT += dt; else f->moveT = fmax(0, f->moveT - dt);
-    if (f->calibrated && (f->moveT > 0.5 || dot3(f->g, f->gCal) < cos(20 * M_PI / 180))) reset_cal(f);
+    // May bi xoay tren gia (bam man hinh lam khop bi xoay, chinh lai goc...):
+    // KHONG xoa huong da hoc, ma xoay truc tien theo con quay: dF/dt = -w x F.
+    // Chi khi xoay manh lien tuc > 4 s (thao may khoi gia, cam tren tay) moi hoc lai tu dau.
+    if (gm > 0.35) f->handleT += dt; else if (gm < 0.15) f->handleT = fmax(0, f->handleT - dt * 0.5);
+    if (f->calibrated && f->handleT > 4.0) { reset_cal(f); f->handleT = 0; }
+    if (f->calibrated && f->Fvalid && gm > 0.35) {
+        double wf[3]; cross3(rot, f->F, wf);
+        for (int i = 0; i < 3; i++) f->F[i] -= wf[i] * dt;
+        if (!f->recheck) { f->recheck = 1; f->Lx = f->Ly = f->Lc = 0; f->Sx = f->Sy = f->E = 0; }
+    }
 
     double e1[3], e2[3];
     basis(f->g, e1, e2);
+    if (f->calibrated && f->Fvalid && (gm > 0.35 || dot3(f->g, f->gF) < cos(0.3 * M_PI / 180))) {   // goc tien theo co so moi
+        memcpy(f->gF, f->g, sizeof f->g);
+        double fx = dot3(f->F, e1), fy = dot3(f->F, e2);
+        if (fx * fx + fy * fy > 0.04) f->theta = atan2(fy, fx);
+        if (dot3(f->g, f->gCal) < cos(10 * M_PI / 180)) memcpy(f->gCal, f->g, sizeof f->g);
+    }
     // dung lai can chinh da luu khi trong luc da on dinh (~0,5 s)
     f->nImu++;
     if (f->savedPending && f->nImu > 50) {
         f->savedPending = 0;
-        if (dot3(f->g, f->savedG) > cos(15 * M_PI / 180)) {
-            f->theta = f->savedTheta; f->calibrated = 1; f->calProgress = 1;
+        if (dot3(f->g, f->savedG) > cos(45 * M_PI / 180)) {
+            double s1[3], s2[3], Fs[3]; basis(f->savedG, s1, s2);
+            for (int i = 0; i < 3; i++) Fs[i] = cos(f->savedTheta) * s1[i] + sin(f->savedTheta) * s2[i];
+            double fx = dot3(Fs, e1), fy = dot3(Fs, e2);
+            f->theta = atan2(fy, fx); f->calibrated = 1; f->calProgress = 1;
+            if (dot3(f->g, f->savedG) < cos(12 * M_PI / 180)) f->recheck = 1;   // goc gan da doi: kiem tra lai khi vao cua
             memcpy(f->gCal, f->g, sizeof f->g);
             f->E = CAL_ENERGY;
             f->Sx = cos(f->theta) * CAL_ENERGY; f->Sy = sin(f->theta) * CAL_ENERGY;
@@ -129,7 +148,8 @@ void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], cons
                 memcpy(f->gCal, f->g, sizeof f->g);
             } else {
                 double d = atan2(sin(th - f->theta), cos(th - f->theta));
-                if (fabs(d) < 0.6) f->theta += d * fmin(1, dt * 0.5);
+                if (f->recheck) { f->theta = th; f->recheck = 0; f->calByTurn = 1; }
+                else if (fabs(d) < 0.6) f->theta += d * fmin(1, dt * 0.5);
             }
         }
     }
@@ -175,6 +195,8 @@ void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], cons
     f->a = f->aLp;
     f->dist += f->v * dt;
     f->quality = (f->calibrated ? 0.6 : 0.3) + (f->gpsOk ? 0.4 : 0.1);
+    if (f->calibrated) { for (int i = 0; i < 3; i++) f->F[i] = cos(f->theta) * e1[i] + sin(f->theta) * e2[i]; if (!f->Fvalid) memcpy(f->gF, f->g, sizeof f->g); f->Fvalid = 1; }
+    else f->Fvalid = 0;
 }
 
 // toc do uoc luong tai thoi diem t (noi suy trong lich su)
@@ -251,7 +273,7 @@ void paf_gps(PAFusion *f, double speed, double speedAcc, double course, double t
                     if (!f->calibrated) { f->theta = th; f->calibrated = 1; f->calProgress = 1; memcpy(f->gCal, f->g, sizeof f->g); }
                     else {
                         double d = atan2(sin(th - f->theta), cos(th - f->theta));
-                        f->theta += d * 0.3;
+                        if (f->recheck) { f->theta = th; f->recheck = 0; } else f->theta += d * 0.3;
                     }
                 }
             }

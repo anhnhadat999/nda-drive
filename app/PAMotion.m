@@ -4,6 +4,7 @@
 #import "PADiag.h"
 
 @implementation PAMotion {
+    double _lastSavedG[3];
     double _newIntv, _lastNewWall, _lastRawSpeed, _lastRawCourse; int _newFixFlag; BOOL _fromCar;
     PASynth *_synth;
     PAFusion _f;
@@ -296,8 +297,9 @@
     }
 
     // luu can chinh khi vua hoc xong hoac goc thay doi dang ke (moi ~2 giay kiem tra)
-    if (_f.calibrated && _n % 200 == 0 && (!_savedOnce || fabs(_f.theta - _lastSavedTheta) > 0.03)) {
-        _savedOnce = YES; _lastSavedTheta = _f.theta;
+    double gdot = _f.gCal[0] * _lastSavedG[0] + _f.gCal[1] * _lastSavedG[1] + _f.gCal[2] * _lastSavedG[2];
+    if (_f.calibrated && _n % 200 == 0 && (!_savedOnce || fabs(_f.theta - _lastSavedTheta) > 0.03 || gdot < 0.995)) {
+        _savedOnce = YES; _lastSavedTheta = _f.theta; memcpy(_lastSavedG, _f.gCal, sizeof _lastSavedG);
         double th = _f.theta, gx = _f.gCal[0], gy = _f.gCal[1], gz = _f.gCal[2];
         dispatch_async(dispatch_get_main_queue(), ^{
             NSUserDefaults *d = NSUserDefaults.standardUserDefaults;

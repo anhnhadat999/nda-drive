@@ -52,7 +52,10 @@ typedef struct {
     double savedTheta, savedG[3];
     // hoc huong xe bang LUC VAO CUA (khong can GPS chinh xac): gia toc ngang = toc do x toc do quay
     double Lx, Ly, Lc;
-    int calByTurn;                  // lan hoc gan nhat la nho vao cua
+    int calByTurn;
+    double F[3], gF[3]; int Fvalid;        // truc tien cua xe trong he dien thoai (theo doi khi may bi xoay tren gia)
+    int recheck;                    // vua bi xoay: cho phep lan hoc ke tiep thay han goc cu
+    double handleT;                 // tong thoi gian may bi xoay manh lien tuc (thao khoi gia?)                  // lan hoc gan nhat la nho vao cua
     // tu uoc luong do tre GPS (GPS cua xe qua CarPlay tre 1-2 s, cap nhat ~2 s/lan)
     double dlyErr[PAF_NDLY]; double gpsDelay; long dlyN;
     double lastFixT;                // thoi diem cam bien luc nhan ban tin GPS moi
