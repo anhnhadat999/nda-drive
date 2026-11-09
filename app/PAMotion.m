@@ -236,6 +236,7 @@
     } else if (_rateT == 0) { _rateT = now; _imuCountPrev = _imuCount; _gpsCountPrev = _gpsCountI; }
 }
 - (double)gpsAge { return NSProcessInfo.processInfo.systemUptime - _lastGpsWall; }
+- (double)gpsRepeatRatio { return _f.gpsTotal > 0 ? (double)_f.gpsRepTotal / _f.gpsTotal : 0; }
 - (BOOL)gpsOnlyFallback { return _running && self.imuAge > 0.5; }
 
 - (void)stop {

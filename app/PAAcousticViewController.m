@@ -100,7 +100,7 @@
         return c;
     }
     if (ip.section == 0) {
-        UITableViewCell *c = [self cell:(_busy ? (_status ?: @"Đang đo…") : @"Bắt đầu đo (khoảng 12 giây)") detail:nil];
+        UITableViewCell *c = [self cell:(_busy ? (_status ?: @"Đang đo…") : @"Bắt đầu đo (khoảng 15 giây)") detail:nil];
         c.textLabel.textColor = _busy ? PA_MUTED : PA_AMBER; c.textLabel.font = PAFont(17, UIFontWeightSemibold);
         c.selectionStyle = _busy ? UITableViewCellSelectionStyleNone : UITableViewCellSelectionStyleDefault;
         return c;

@@ -35,6 +35,7 @@ typedef struct {
     double Sx, Sy, E;               // tich luy hoi quy de hoc truc tien
     double hxSum, hySum; int hN;    // trung binh gia toc ngang giua 2 lan GPS
     double lastGpsV, lastGpsT, lastGpsCourse, lastFixWall;
+    int gpsRep; long gpsRepTotal, gpsTotal;   // ban tin GPS lap lai (xe gui vi tri qua CarPlay hay giu so cu)
     int hasGps;
     double aLp;                     // loc thong thap cho gia toc dau ra
     double accVar, gyrMean, accMean;// thong ke de nhan biet dung yen

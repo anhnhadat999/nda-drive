@@ -20,6 +20,10 @@ echo "== Tu sua khi nap can chinh cu sai 40 do (may bi xoay tren gia)"
 for m in 0 1; do
   "$OUT/fusion" $m 1 1 | tail -3 | tr '\n' ' '; echo; "$OUT/fusion" $m 1 1 > /dev/null || fail=1
 done
+echo "== GPS cua xe bi giu so cu 1-4 giay (nhu VF7 qua CarPlay)"
+for m in 0 1; do for seed in 1 3 7; do
+  "$OUT/fusion" $m $seed 2 | tail -2 | tr '\n' ' '; echo; "$OUT/fusion" $m $seed 2 > /dev/null || fail=1
+done; done
 echo "== Bo loc tieng tu phia sau (dap ung tan so)"
 $CC -O2 -Wall -o "$OUT/eq" test/rear_eq_test.c app/PASynth.c -lm
 "$OUT/eq" || fail=1

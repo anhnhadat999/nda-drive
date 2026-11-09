@@ -111,7 +111,8 @@ void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], cons
     f->accMean += (am - f->accMean) * k;
     f->accVar += ((am - f->accMean) * (am - f->accMean) - f->accVar) * k;
     f->gyrMean += (gm - f->gyrMean) * k;
-    int stillSensor = sqrt(f->accVar) < 0.08 && f->accMean < 0.18 && f->gyrMean < 0.05;
+    int gpsZero = f->hasGps && f->lastGpsV < 0.3 && (t - f->lastFixWall) < GPS_LOST_S;
+    int stillSensor = sqrt(f->accVar) < 0.08 && f->gyrMean < 0.05 && f->accMean < (gpsZero ? 0.6 : 0.18);
 
     f->gpsOk = f->hasGps && (t - f->lastFixWall) < GPS_LOST_S;
 
@@ -162,6 +163,14 @@ static double hist_at(const PAFusion *f, double t, int *found) {
 void paf_gps(PAFusion *f, double speed, double speedAcc, double course, double tFix) {
     if (speed < 0) return;
     double now = f->t > 0 ? f->t : tFix;
+    f->gpsTotal++;
+    // Ban tin lap lai y het ban truoc (toc do + huong) khi xe dang chay: so cu bi giu lai, KHONG phai do moi.
+    // (VF7 gui vi tri cua xe qua CarPlay, co luc giu nguyen 1-5 giay.) Bo qua de khong keo toc do ve so cu.
+    if (f->hasGps && speed == f->lastGpsV && course == f->lastGpsCourse && speed > 0.3) {
+        f->gpsRep++; f->gpsRepTotal++;
+        return;
+    }
+    f->gpsRep = 0;
 
     // ---- Kalman: cap nhat bang GPS (bu do tre) ----
     double sa = speedAcc > 0 ? fmax(speedAcc, 0.2) : 0.8;

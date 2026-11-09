@@ -19,27 +19,43 @@ int paa_make_sweep(float *out, int maxN, double sr, double f1, double f2, double
     return n;
 }
 
-// Tim do tre bang tuong quan cheo tren tin hieu da giam mau (x4), trong cua so 0..600 ms
+// Tim do tre: (1) tim thoi diem nang luong tang vot so voi on nen (khoi 5 ms) trong 0..3 s
+// - CarPlay khong day tre 1-2 s; (2) tuong quan cheo day du quanh do (+-40 ms).
+// Neu khong thay diem tang vot thi tuong quan cheo tho trong 0..600 ms nhu cu.
 static int find_lag(const float *x, int nS, const float *y, int nY, int playStart, double sr) {
-    int D = 4, maxLag = (int)(0.6 * sr / D), len = (int)(2.0 * sr / D);
-    if (len * D > nS) len = nS / D;
-    int best = 0; double bv = -1;
-    for (int L = 0; L < maxLag; L++) {
-        double s = 0; int base = playStart + L * D;
-        if (base + len * D >= nY) break;
-        for (int i = 0; i < len; i++) s += (double)x[i * D] * y[base + i * D];
+    int B = (int)(0.005 * sr); if (B < 8) B = 8;
+    double ne = 0; int nn = playStart - (int)(0.1 * sr);
+    for (int i = 0; i < nn; i++) ne += (double)y[i] * y[i];
+    double nb = nn > 0 ? ne / nn * B : 1e-12;
+    int coarse = -1, maxL = (int)(3.0 * sr);
+    for (int L = 0; L + 4 * B < maxL && playStart + L + 4 * B < nY; L += B) {
+        double e = 0;   // 4 khoi lien tiep deu vuot on nen 10 dB
+        int ok = 1;
+        for (int k = 0; k < 4 && ok; k++) {
+            e = 0; for (int i = 0; i < B; i++) { double v = y[playStart + L + k * B + i]; e += v * v; }
+            if (e < nb * 10) ok = 0;
+        }
+        if (ok) { coarse = L; break; }
+    }
+    int len = (int)(1.0 * sr); if (len > nS) len = nS;
+    int lo, hi, step;
+    if (coarse >= 0) { lo = coarse - (int)(0.04 * sr); hi = coarse + (int)(0.04 * sr); step = 1; }
+    else { lo = 0; hi = (int)(0.6 * sr); step = 4; }
+    if (lo < 0) lo = 0;
+    int best = lo; double bv = -1;
+    for (int L = lo; L <= hi; L += step) {
+        int base = playStart + L; if (base + len >= nY) break;
+        double s = 0; for (int i = 0; i < len; i += 2) s += (double)x[i] * y[base + i];
         if (fabs(s) > bv) { bv = fabs(s); best = L; }
     }
-    // tinh chinh o do phan giai day du quanh ket qua
-    int c = best * D, bestF = c; double bvF = -1;
-    for (int L = c - D; L <= c + D; L++) {
-        if (L < 0) continue;
-        double s = 0; int base = playStart + L, n2 = len * D;
-        if (base + n2 >= nY) continue;
-        for (int i = 0; i < n2; i += 2) s += (double)x[i] * y[base + i];
-        if (fabs(s) > bvF) { bvF = fabs(s); bestF = L; }
+    if (step > 1) {   // tinh chinh
+        int c = best; for (int L = c - step; L <= c + step; L++) {
+            if (L < 0) continue; int base = playStart + L; if (base + len >= nY) continue;
+            double s = 0; for (int i = 0; i < len; i += 2) s += (double)x[i] * y[base + i];
+            if (fabs(s) > bv) { bv = fabs(s); best = L; }
+        }
     }
-    return bestF;
+    return best;
 }
 
 void paa_analyze(const float *x, int nS, const float *y, int nY, int playStart, double sr,
@@ -52,12 +68,13 @@ void paa_analyze(const float *x, int nS, const float *y, int nY, int playStart, 
     for (int i = 0; i < nn; i++) ne += (double)y[i] * y[i];
     double noiseRms = nn > 0 ? sqrt(ne / nn) : 1e-9;
     r->noiseDbfs = 20 * log10(noiseRms + 1e-12);
-    double sigE = 0;
+    double sigE = 0; int ok[PAA_BANDS];
     double lnr = log(f2 / f1);
     for (int b = 0; b < PAA_BANDS; b++) {
         double lo = PAA_BAND_HZ[b] / pow(2, 1.0 / 6), hi = PAA_BAND_HZ[b] * pow(2, 1.0 / 6);
+        ok[b] = lo >= f1 * 0.85 && hi <= f2;   // dai nam tron trong vung quet (vd mic xe 16 kHz chi do toi ~7 kHz)
         if (lo < f1) lo = f1; if (hi > f2) hi = f2;
-        if (hi <= lo) { r->respDb[b] = r->absDb[b] = 0; continue; }
+        if (hi <= lo) { ok[b] = 0; r->respDb[b] = r->absDb[b] = 0; continue; }
         // doan thoi gian ma tieng quet di qua dai nay
         int i0 = (int)(T * log(lo / f1) / lnr * sr), i1 = (int)(T * log(hi / f1) / lnr * sr);
         if (i1 > nS) i1 = nS;
@@ -76,13 +93,13 @@ void paa_analyze(const float *x, int nS, const float *y, int nY, int playStart, 
     r->snrDb = 10 * log10((sigE / (ns > 0 ? ns : 1) + 1e-20) / (noiseRms * noiseRms + 1e-20));
     // chuan hoa quanh dai giua 200 Hz - 4 kHz
     double ref = 0; int rc = 0;
-    for (int b = 0; b < PAA_BANDS; b++) if (PAA_BAND_HZ[b] >= 200 && PAA_BAND_HZ[b] <= 4000) { ref += r->absDb[b]; rc++; }
-    ref /= rc;
-    for (int b = 0; b < PAA_BANDS; b++) r->respDb[b] = r->absDb[b] - ref;
+    for (int b = 0; b < PAA_BANDS; b++) if (ok[b] && PAA_BAND_HZ[b] >= 200 && PAA_BAND_HZ[b] <= 4000) { ref += r->absDb[b]; rc++; }
+    ref /= (rc ? rc : 1);
+    for (int b = 0; b < PAA_BANDS; b++) r->respDb[b] = ok[b] ? r->absDb[b] - ref : 0;
     // bo bu theo quang tam: trung binh cac dai 1/3 trong +-1/2 quang tam, dao dau, gioi han +-6 dB, giam 30% (bu nhe)
     for (int o = 0; o < PAA_OCT; o++) {
         double lo = PAA_OCT_HZ[o] / sqrt(2), hi = PAA_OCT_HZ[o] * sqrt(2), s = 0; int c = 0;
-        for (int b = 0; b < PAA_BANDS; b++) if (PAA_BAND_HZ[b] >= lo && PAA_BAND_HZ[b] < hi) { s += r->respDb[b]; c++; }
+        for (int b = 0; b < PAA_BANDS; b++) if (ok[b] && PAA_BAND_HZ[b] >= lo && PAA_BAND_HZ[b] < hi) { s += r->respDb[b]; c++; }
         double m = c ? s / c : 0;
         double corr = -m * 0.7;
         if (corr > 6) corr = 6; if (corr < -6) corr = -6;

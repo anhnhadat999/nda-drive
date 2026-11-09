@@ -35,7 +35,9 @@ int main(int argc,char**argv){
   mm(mount?B1:B0,Rz,T); mm(Rt,T,Rvd);
   double bias[3]={0.06,-0.04,0.05};
   PAFusion f; paf_init(&f);
-  int wrongcal = argc>3 && atoi(argv[3])==1;   // nap san can chinh SAI 40 do (may bi xoay ngang tren gia)
+  int wrongcal = argc>3 && atoi(argv[3])==1;
+  int stale = argc>3 && atoi(argv[3])==2;   // GPS kieu xe VF7 qua CarPlay: so lieu bi giu nguyen 1-4 giay
+  double held=-1; int holdN=0;   // nap san can chinh SAI 40 do (may bi xoay ngang tren gia)
   double trueTheta = mount ? 24.8*M_PI/180 : -28.1*M_PI/180;
   if (wrongcal) { double gv[3]={0,0,-9.81}, gd[3]; mul(Rvd,gv,gd); paf_load_calibration(&f, trueTheta + 40*M_PI/180, gd); }
   double dt=0.01, nextGps=0.3; double gpsDelay=0.6;
@@ -53,6 +55,7 @@ int main(int argc,char**argv){
     if(t>=nextGps){ nextGps+=1.0;
       if(!tun){ double tFix=t-gpsDelay; double tv,ta,tw; int tt; truth(tFix,&tv,&ta,&tw,&tt);
         double meas=fmax(0,tv+gauss()*0.25); if(tv<0.3) meas=fabs(gauss()*0.3);
+        if(stale){ if(holdN>0 && held>=0){ meas=held; holdN--; } else { held=meas; holdN=rand()%4; } if(tv<0.3) meas=0; }
         paf_gps(&f,meas,0.4,90,tFix+1);
         if(gV>=0){ gA=(meas-gPrevV)/fmax(0.3,(tFix-gPrevT)); } gPrevV=meas; gPrevT=tFix; gV=meas; gT=tFix;
       }
@@ -80,7 +83,7 @@ int main(int argc,char**argv){
   printf("  ghi nho can chinh: dung lai=%s, doi goc gan -> hoc lai=%s\n", reuseOk?"OK":"LOI", rejectOk?"OK":"LOI");
   double thErr = fabs(atan2(sin(f.theta-trueTheta),cos(f.theta-trueTheta)))*180/M_PI;
   if (wrongcal) printf("  nap can chinh sai 40 do -> sau chuyen di lech con %.1f do\n", thErr);
-  int ok = (!wrongcal || thErr < 8) && reuseOk && rejectOk && sqrt(eF/n) < (wrongcal ? 3.0 : 1.8) && sqrt(eF/n) < sqrt(eG/n) && sqrt(tunErrF/fmax(1,tunN)) < 3.5 && calT > 0 && calT < 20;
+  int ok = (!wrongcal || thErr < 8) && reuseOk && rejectOk && sqrt(eF/n) < (wrongcal ? 3.0 : (stale ? 2.6 : 1.8)) && sqrt(eF/n) < sqrt(eG/n) && sqrt(tunErrF/fmax(1,tunN)) < 3.5 && calT > 0 && calT < 20;
   printf("  -> %s\n", ok?"DAT":"KHONG DAT");
   return ok?0:1;
 }

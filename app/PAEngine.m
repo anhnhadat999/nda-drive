@@ -354,6 +354,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         if (_locating) {   // thong ke chat luong cam bien moi giay
             PADiag *dg = PADiag.shared;
             [dg noteValue:_motion.imuHz forKey:@"imu_hz"];
+            [dg noteValue:_motion.gpsRepeatRatio forKey:@"gps_repeat_ratio"];
             if (_motion.gpsHz > 0) [dg noteValue:_motion.gpsHz forKey:@"gps_hz"];
             if (_motion.gpsAccuracy > 0) [dg noteValue:_motion.gpsAccuracy forKey:@"gps_speed_acc_ms"];
             [dg noteValue:_motion.calibrated ? 1 : 0 forKey:@"calibrated_ratio"];

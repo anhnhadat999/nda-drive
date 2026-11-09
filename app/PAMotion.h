@@ -33,6 +33,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)stopTrip;
 + (NSURL *)tripsFolder;                       // khoi dong lai cam bien chuyen dong (khi iOS dung gui so lieu)
 @property (nonatomic, readonly) double imuAge, gpsAge;   // so giay ke tu lan nhan so lieu cuoi
+@property (nonatomic, readonly) double gpsRepeatRatio;   // ty le ban tin GPS lap lai so cu
 @property (nonatomic, readonly) BOOL gpsOnlyFallback;   // dang dung thang GPS vi cam bien dung
 // So lieu tho cho o thong so (cap nhat ~5 lan/giay tren luong chinh)
 @property (nonatomic, readonly) double ax, ay, az;          // gia toc nguoi dung/xe (m/s^2, he dien thoai)

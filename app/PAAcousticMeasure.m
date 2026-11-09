@@ -4,7 +4,7 @@
 #import "PADiag.h"
 #import <AVFoundation/AVFoundation.h>
 
-static const double kF1 = 40, kF2 = 16000, kT = 8, kPre = 1.0, kPost = 1.2;
+static const double kF1 = 40, kF2 = 16000, kT = 8, kPre = 1.0, kPost = 3.5;   // CarPlay khong day tre toi 1-2 s
 
 @implementation PAAcousticMeasure
 
@@ -53,10 +53,12 @@ static const double kF1 = 40, kF2 = 16000, kT = 8, kPre = 1.0, kPost = 1.2;
     AVAudioInputNode *in = ae.inputNode;
     AVAudioFormat *inFmt = [in outputFormatForBus:0];
     double sr = inFmt.sampleRate > 0 ? inFmt.sampleRate : 48000;
+    double f2 = fmin(kF2, 0.45 * sr);                // mic xe (che do cuoc goi) thuong chi 16 kHz -> quet toi ~7 kHz
+    NSString *micName = port.portName ?: @"?", *outName = as.currentRoute.outputs.firstObject.portName ?: @"?";
     int nS = (int)(kT * sr);
     AVAudioFormat *mono = [[AVAudioFormat alloc] initStandardFormatWithSampleRate:sr channels:1];
     AVAudioPCMBuffer *buf = [[AVAudioPCMBuffer alloc] initWithPCMFormat:mono frameCapacity:nS];
-    buf.frameLength = paa_make_sweep(buf.floatChannelData[0], nS, sr, kF1, kF2, kT, 0.5);
+    buf.frameLength = paa_make_sweep(buf.floatChannelData[0], nS, sr, kF1, f2, kT, 0.6);
     float *sweepCopy = malloc(sizeof(float) * nS); memcpy(sweepCopy, buf.floatChannelData[0], sizeof(float) * nS);
 
     AVAudioPlayerNode *pl = [AVAudioPlayerNode new];
@@ -88,14 +90,24 @@ static const double kF1 = 40, kF2 = 16000, kT = 8, kPre = 1.0, kPost = 1.2;
         dispatch_async(q, ^{
             int nY = (int)(rec.length / sizeof(float));
             PAAcousticResult r;
-            paa_analyze(sweepCopy, nS, rec.bytes, nY, playStart, sr, kF1, kF2, kT, &r);
+            paa_analyze(sweepCopy, nS, rec.bytes, nY, playStart, sr, kF1, f2, kT, &r);
+            float pk = 0; const float *yy = rec.bytes; for (int i = 0; i < nY; i++) pk = fmaxf(pk, fabsf(yy[i]));
             free(sweepCopy);
             [rec setLength:0];                       // xoa am thanh thu duoc ngay sau khi phan tich
             dispatch_async(dispatch_get_main_queue(), ^{
                 [eng resumeAfterMeasurement];
+                [NSUserDefaults.standardUserDefaults setObject:@{ @"mic": micName, @"out": outName, @"car_mic": @(carMic), @"sr": @(sr), @"f2": @(f2),
+                    @"latency_ms": @(r.latencyMs), @"snr_db": @(r.snrDb), @"noise_dbfs": @(r.noiseDbfs), @"peak_dbfs": @(20 * log10(pk + 1e-9)), @"valid": @(r.valid),
+                    @"at": @([NSDate date].timeIntervalSince1970) } forKey:@"acoustic.last"];
+                PALog(@"Do am hoc: mic %@ -> loa %@, %.0f Hz, dinh %.0f dBFS", micName, outName, sr, 20 * log10(pk + 1e-9));
                 PALog(@"Do am hoc xong: tre %.1f ms, SNR %.0f dB, on nen %.0f dBFS, hop le %d", r.latencyMs, r.snrDb, r.noiseDbfs, r.valid);
                 [PADiag.shared bump:r.valid ? @"acoustic_ok" : @"acoustic_low_snr"];
-                if (!r.valid) { done(r, [NSString stringWithFormat:@"Tiếng đo quá nhỏ so với tiếng ồn (SNR %.0f dB). Tăng âm lượng xe, đóng cửa, tắt điều hòa rồi đo lại.", r.snrDb]); return; }
+                if (!r.valid) {
+                    NSString *m = carMic
+                        ? [NSString stringWithFormat:@"Mic xe không nghe rõ tiếng quét (SNR %.0f dB). Xe thường tự lọc bỏ tiếng loa khỏi mic (chống vọng khi gọi điện). Hãy chọn \"Mic iPhone\", đặt máy ở giữa xe rồi đo lại.", r.snrDb]
+                        : [NSString stringWithFormat:@"Tiếng đo quá nhỏ so với tiếng ồn (SNR %.0f dB). Tăng âm lượng xe, đóng cửa, tắt điều hòa rồi đo lại.", r.snrDb];
+                    done(r, m); return;
+                }
                 [self save:r];
                 done(r, nil);
             });
