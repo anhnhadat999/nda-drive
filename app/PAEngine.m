@@ -5,6 +5,7 @@
 #import "PAMotion.h"
 #import "PALog.h"
 #import "PADiag.h"
+#import "PAAcousticMeasure.h"
 
 NSString *const PAEngineDidUpdateNotification = @"PAEngineDidUpdateNotification";
 
@@ -22,7 +23,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     CLLocationManager *_lm;
     PAMotion *_motion;
     BOOL _booted, _routeCarPlay, _tweakCarPlay, _manualRun, _locating;
-    BOOL _userOff, _lastCarPlay, _sessionReady, _restarting;
+    BOOL _userOff, _lastCarPlay, _sessionReady, _restarting, _measuring;
     double _lastGpsKick, _lastImuKick;
     double _lastFixSpeed, _lastFixAccel, _lastTestSpeed;
     NSTimeInterval _lastFixTime;
@@ -43,7 +44,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
         [d registerDefaults:@{ @"enabled": @YES, @"onlyWithCarPlay": @YES, @"preset": @"gt3",
                                @"volume": @0.7, @"tone": @0.5, @"pops": @YES, @"shiftPop": @YES,
-                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7 }];
+                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7, @"acousticCorr": @YES }];
         _enabled = [d boolForKey:@"enabled"];
         _onlyWithCarPlay = [d boolForKey:@"onlyWithCarPlay"];
         _presetKey = [d stringForKey:@"preset"] ?: @"gt3";
@@ -58,6 +59,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _learnEnabled = [d boolForKey:@"learn"];
         _recordEnabled = [d boolForKey:@"record"];
         _rearAmount = [d doubleForKey:@"rearAmt"];
+        _acousticCorrection = [d boolForKey:@"acousticCorr"];
         [self applySettings];
     }
     return self;
@@ -78,6 +80,10 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     _synth.autoVol = _autoVolume;
     _synth.rearFx = _rearEffect;
     _synth.rearAmt = _rearAmount;
+    PAAcousticResult ar;
+    BOOL hasAr = [PAAcousticMeasure loadSaved:&ar];
+    if (hasAr) { for (int k = 0; k < 9; k++) _synth.corrDb[k] = ar.corrDb[k]; _synth.corrVer++; }
+    _synth.corrOn = hasAr && _acousticCorrection;
     PAMotion *mo = _motion;
     mo.speedTrim = _speedTrim;
     mo.learnEnabled = _learnEnabled;
@@ -86,6 +92,28 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
 }
 
 - (id)motion { return _motion; }
+- (void)setAcousticCorrection:(BOOL)v { _acousticCorrection = v; [self save:@(v) key:@"acousticCorr"]; [self applySettings]; }
+- (void)reloadAcoustic { [self applySettings]; }
+
+// Tam dung tieng po + tra lai phien am thanh cho viec do am hoc
+- (void)pauseForMeasurement {
+    _measuring = YES;
+    [_audio stop];
+    _sessionReady = NO;
+}
+- (void)resumeAfterMeasurement {
+    _measuring = NO;
+    NSError *err = nil;
+    [AVAudioSession.sharedInstance setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeDefault
+                                       options:AVAudioSessionCategoryOptionMixWithOthers error:&err];
+    _sessionReady = NO;
+    if (_audio) {   // dung lai bo may am thanh (dinh dang dau ra co the da doi)
+        [NSNotificationCenter.defaultCenter removeObserver:self name:AVAudioEngineConfigurationChangeNotification object:_audio];
+        _audio = nil; _source = nil;
+    }
+    [self startAudio];
+    [self applySettings];
+}
 - (void)setRearAmount:(double)v { _rearAmount = v; [self save:@(v) key:@"rearAmt"]; [self applySettings]; }
 - (void)setRecordEnabled:(BOOL)v { _recordEnabled = v; [self save:@(v) key:@"record"]; [self applySettings]; if (!v) [_motion stopTrip]; }
 - (void)setLearnEnabled:(BOOL)v { _learnEnabled = v; [self save:@(v) key:@"learn"]; [self applySettings]; }
@@ -190,7 +218,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 }
 
 - (void)startAudio {
-    if (!_enabled) return;
+    if (!_enabled || _measuring) return;
     [self configureSession];
     if (!_audio) {
         _audio = [AVAudioEngine new];
@@ -225,6 +253,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 
 - (void)audioConfigChanged:(NSNotification *)n {
     [PADiag.shared bump:@"audio_config_change"];
+    if (_measuring) return;
     // Doi loa / tai nghe / CarPlay: iOS dung bo am thanh. Chi can khoi dong LAI (khong dung lai tu dau),
     // va gop cac thong bao don dap trong 0,5 giay thanh mot lan.
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -346,7 +375,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
             [_motion restartSensors];
             [PADiag.shared bump:@"imu_restart"];
         }
-        if (_enabled && !_audio.isRunning) { PALog(@"Am thanh dung -> bat lai"); [PADiag.shared bump:@"audio_restart"]; _sessionReady = NO; [self startAudio]; }
+        if (_enabled && !_measuring && !_audio.isRunning) { PALog(@"Am thanh dung -> bat lai"); [PADiag.shared bump:@"audio_restart"]; _sessionReady = NO; [self startAudio]; }
     }
     if (_tickCount % 10 == 0) { // moi 2 giay kiem tra lai duong ra am thanh
         BOOL r = [self routeIsCarPlay];

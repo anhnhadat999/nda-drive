@@ -23,6 +23,9 @@ done
 echo "== Bo loc tieng tu phia sau (dap ung tan so)"
 $CC -O2 -Wall -o "$OUT/eq" test/rear_eq_test.c app/PASynth.c -lm
 "$OUT/eq" || fail=1
+echo "== Do am hoc khoang xe (gia lap khoang xe da biet dac tinh)"
+$CC -O2 -Wall -o "$OUT/ac" test/acoustic_test.c app/PAAcoustic.c -lm
+"$OUT/ac" || fail=1
 echo "== Hoc thich nghi: 2 xe x 2 phong cach lai"
 $CC -O2 -Wall -o "$OUT/learn" test/learn_test.c app/PALearn.c -lm
 "$OUT/learn" || fail=1

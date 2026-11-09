@@ -319,6 +319,22 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
             s->dIdx = (s->dIdx + 1) & 2047;
             o = x * (1 - 0.15 * ra) + d7 * 0.28 * ra + d13 * 0.2 * ra;
         }
+        if (s->corrOn) {
+            if (s->cSr != sr || s->cVer != s->corrVer) {
+                static const double OCT[9] = {63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000};
+                for (int k = 0; k < 9; k++) biquad_peak(s->cq[k], sr, fmin(OCT[k], sr * 0.42), 1.4, s->corrDb[k]);
+                s->cSr = sr; s->cVer = s->corrVer;
+            }
+            double x = o;
+            for (int f = 0; f < 9; f++) {
+                double *k = s->cq[f], *z = s->cz[f];
+                double y = k[0] * x + z[0];
+                z[0] = k[1] * x - k[3] * y + z[1];
+                z[1] = k[2] * x - k[4] * y;
+                x = y;
+            }
+            o = x;
+        }
         o *= s->master;
         out[i] = (float)tanh(o * 1.2); // gioi han an toan
         s->rpmA = rpmA; s->loadA = loadA;

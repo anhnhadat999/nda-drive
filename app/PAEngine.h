@@ -28,7 +28,11 @@ extern NSString *const PAEngineDidUpdateNotification;
 @property (nonatomic) BOOL shiftPopEnabled;
 @property (nonatomic) BOOL autoVolume;           // tu tang am luong theo toc do
 @property (nonatomic) BOOL rearEffect;
-@property (nonatomic) double rearAmount;         // cuong do cam giac phia sau 0..1
+@property (nonatomic) double rearAmount;
+@property (nonatomic) BOOL acousticCorrection;   // ap dung bu khoang xe tu ket qua do
+- (void)pauseForMeasurement;
+- (void)resumeAfterMeasurement;
+- (void)reloadAcoustic;         // cuong do cam giac phia sau 0..1
 @property (nonatomic) BOOL learnEnabled;
 @property (nonatomic) BOOL recordEnabled;        // ghi lich su chuyen di (CSV)         // hoc thich nghi theo xe va cach lai           // hieu ung tieng vong tu phia sau xe
 @property (nonatomic) double speedTrim;          // -0.10..+0.10

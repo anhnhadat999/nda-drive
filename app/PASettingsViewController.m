@@ -8,6 +8,7 @@
 #import "PALearnViewController.h"
 #import "PATripsViewController.h"
 #import "PADiag.h"
+#import "PAAcousticViewController.h"
 
 typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
 
@@ -42,7 +43,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
-        case SecSound: return 7;
+        case SecSound: return 8;
         case SecLearn: return 4;
         case SecRun: return 2;
         case SecTest: return 2;
@@ -137,6 +138,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 3) return [self switchCell:@"Tiếng \"bụp\" khi lên số" icon:@"arrow.up.circle.fill" on:e.shiftPopEnabled tag:11];
             if (ip.row == 4) return [self switchCell:@"Tự tăng âm lượng theo tốc độ" icon:@"speaker.wave.3.fill" on:e.autoVolume tag:16];
             if (ip.row == 5) return [self switchCell:@"Hiệu ứng tiếng từ phía sau" icon:@"speaker.wave.2.fill" on:e.rearEffect tag:17];
+            if (ip.row == 7) return [self infoCell:@"Đo âm học khoang xe" detail:(e.acousticCorrection ? @"bù: bật" : nil) icon:@"waveform.and.mic" tappable:YES];
             return [self sliderCell:@"Cường độ cảm giác phía sau" value:e.rearAmount max:1 tag:4 detail:[NSString stringWithFormat:@"%.0f%%", e.rearAmount * 100] enabled:e.rearEffect];
         case SecLearn: {
             if (ip.row == 0) return [self switchCell:@"Tự học theo xe và cách lái" icon:@"brain" on:e.learnEnabled tag:18];
@@ -175,6 +177,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     if (ip.section == SecStatus && ip.row == 0) {
         [PAEngine.shared requestLocationPermission];
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
+    } else if (ip.section == SecSound && ip.row == 7) {
+        [self.navigationController pushViewController:[PAAcousticViewController new] animated:YES];
     } else if (ip.section == SecLearn && ip.row == 3) {
         [self.navigationController pushViewController:[PATripsViewController new] animated:YES];
     } else if (ip.section == SecLearn && ip.row == 1) {

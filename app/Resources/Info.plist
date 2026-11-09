@@ -9,8 +9,8 @@
 	<key>CFBundleName</key><string>NDADrive</string>
 	<key>CFBundleDisplayName</key><string>NDA Drive</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>0.9.0</string>
-	<key>CFBundleVersion</key><string>11</string>
+	<key>CFBundleShortVersionString</key><string>1.0.0</string>
+	<key>CFBundleVersion</key><string>12</string>
 	<key>CFBundleSupportedPlatforms</key><array><string>iPhoneOS</string></array>
 	<key>MinimumOSVersion</key><string>15.0</string>
 	<key>UIDeviceFamily</key><array><integer>1</integer></array>
@@ -26,6 +26,8 @@
 		<string>audio</string>
 		<string>location</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>NDA Drive dùng micro trong vài giây để đo âm học khoang xe (phát tiếng quét tần số và thu lại), giúp tiếng pô khớp với loa xe. Âm thanh chỉ được phân tích trên máy rồi xóa ngay, không lưu và không gửi đi.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>NDA Drive dùng cảm biến chuyển động và áp kế để đo tốc độ, gia tốc và độ dốc, giúp tiếng pô phản ứng tức thì như xe thật.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

@@ -38,6 +38,9 @@ typedef struct {
     volatile int autoVol;
     volatile int rearFx;          // mo phong tieng truyen tu ong xa phia sau qua khoang xe
     volatile double rearAmt;      // cuong do cam giac phia sau 0..1
+    volatile int corrOn;          // bu dap ung khoang xe (tu ket qua do am hoc)
+    volatile double corrDb[9];    // 63 Hz .. 16 kHz
+    volatile int corrVer;         // tang len moi khi doi corrDb
     volatile int learnOn;         // dung ho so xe da hoc (do boc that + phong cach lai)
     volatile double learnCap[5];  // do boc toi da da hoc theo 5 dai toc do (m/s^2)
     volatile double learnSport;   // 0 em .. 1 the thao          // mo phong tieng truyen tu ong xa phia sau qua khoang xe         // tu tang am luong theo toc do (bu tieng gio, tieng lop)
@@ -62,6 +65,7 @@ typedef struct {
     int cylIdx, popReq, bovPending;
     float dly[2048]; int dIdx; double rLp, rLp2, rHp;
     double eq[4][5], eqz[4][2], eqSr, eqAmt;   // 4 bo loc tan so (biquad) cho cam giac phia sau
+    double cq[9][5], cz[9][2], cSr; int cVer;   // bo bu khoang xe
     unsigned int rng;
 } PASynth;
 

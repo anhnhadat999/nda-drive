@@ -2,6 +2,7 @@
 #import "PAEngine.h"
 #import "PAMotion.h"
 #import "PALog.h"
+#import "PAAcousticMeasure.h"
 #import <UIKit/UIKit.h>
 #import <CoreLocation/CoreLocation.h>
 #include <sys/utsname.h>
@@ -155,6 +156,13 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
                        @"sport": @(pal_sport(&l)), @"confidence": @(pal_confidence(&l)), @"zero_to_100_s": @(pal_zero_to_100(&l)) },
         @"calibration_saved": @{ @"theta": [d objectForKey:@"cal.theta"] ?: [NSNull null] },
         @"events_total": [d dictionaryForKey:@"diag.total"] ?: @{},
+        @"acoustic": ^NSDictionary *{
+            PAAcousticResult ar; if (![PAAcousticMeasure loadSaved:&ar]) return @{ @"measured": @NO };
+            NSMutableArray *bands = [NSMutableArray array], *corr = [NSMutableArray array];
+            for (int b = 0; b < PAA_BANDS; b++) [bands addObject:@{ @"hz": @(PAA_BAND_HZ[b]), @"db": @(round(ar.respDb[b] * 10) / 10), @"abs_db": @(round(ar.absDb[b] * 10) / 10) }];
+            for (int o = 0; o < PAA_OCT; o++) [corr addObject:@{ @"hz": @(PAA_OCT_HZ[o]), @"db": @(round(ar.corrDb[o] * 10) / 10) }];
+            return @{ @"measured": @YES, @"latency_ms": @(ar.latencyMs), @"snr_db": @(ar.snrDb), @"noise_dbfs": @(ar.noiseDbfs), @"bands": bands, @"correction": corr, @"correction_on": @(e.acousticCorrection) };
+        }(),
     };
     dispatch_async(_q, ^{
         NSMutableDictionary *rep = [mainInfo mutableCopy];
