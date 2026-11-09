@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="vi"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NDA Drive – Thử trình duyệt xe</title>
+<style>
+:root{--bg:#09090b;--card:#141417;--line:#2a2a2f;--fg:#f2efe8;--mut:#8e8e93;--gold:#d4b26a;--red:#e5484d;--green:#3dd68c}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:18px/1.4 -apple-system,system-ui,Roboto,sans-serif;padding:16px}
+h1{font-size:22px;margin:0 0 4px;color:var(--gold);font-weight:600}.sub{color:var(--mut);font-size:15px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card h2{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:0 0 10px;font-weight:600}
+.big{font-size:64px;font-weight:300;font-variant-numeric:tabular-nums;line-height:1}.big small{font-size:20px;color:var(--mut)}
+.row{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding:7px 0;font-size:16px}.row:first-of-type{border-top:0}
+.row b{font-weight:500;font-variant-numeric:tabular-nums}.ok{color:var(--green)}.bad{color:var(--red)}.mut{color:var(--mut)}
+button{font:inherit;font-size:19px;background:var(--gold);color:#000;border:0;border-radius:12px;padding:14px 18px;width:100%;margin-top:8px;font-weight:600}
+button.sec{background:#26262b;color:var(--fg)}input[type=range]{width:100%;accent-color:var(--gold)}
+#code{font:13px/1.35 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;color:var(--mut)}
+</style></head><body>
+<h1>NDA Drive · Thử trình duyệt xe</h1>
+<div class="sub">Bấm “Bắt đầu” khi xe đang ĐỖ. Sau đó lái bình thường, không cần nhìn màn hình. Về đến nơi chụp ảnh ô “Kết quả” gửi Claude.</div>
+<div class="grid">
+ <div class="card"><h2>Tốc độ GPS</h2><div class="big" id="spd">--<small> km/h</small></div>
+  <div class="row"><span>Nguồn tốc độ</span><b id="src">–</b></div>
+  <div class="row"><span>Độ chính xác vị trí</span><b id="acc">–</b></div>
+  <div class="row"><span>Cập nhật / giây</span><b id="hz">–</b></div>
+  <div class="row"><span>Số lần nhận GPS</span><b id="nfix">0</b></div>
+ </div>
+ <div class="card"><h2>Khả năng trình duyệt</h2><div id="caps"></div></div>
+ <div class="card"><h2>Tiếng pô thử</h2>
+  <div class="row"><span>Trạng thái âm thanh</span><b id="aud">tắt</b></div>
+  <div class="row"><span>Vòng tua / số</span><b id="rpm">–</b></div>
+  <div class="row"><span>Tốc độ giả lập (khi đỗ)</span><b id="simv">tắt</b></div>
+  <input type="range" id="sim" min="0" max="120" value="0">
+  <div class="mut" style="font-size:14px">Kéo thanh để nghe thử khi đỗ. Về 0 = dùng tốc độ GPS thật.</div>
+ </div>
+ <div class="card"><h2>Chạy nền / khi xe chạy</h2>
+  <div class="row"><span>Thời gian chạy</span><b id="up">0:00</b></div>
+  <div class="row"><span>Số lần chuyển màn hình</span><b id="nhid">0</b></div>
+  <div class="row"><span>GPS nhận khi ẩn trang</span><b id="fixhid">0</b></div>
+  <div class="row"><span>Âm thanh còn chạy khi ẩn</span><b id="audhid">–</b></div>
+  <div class="row"><span>Tốc độ cao nhất ghi được</span><b id="vmax">0</b></div>
+  <div class="row"><span>Khoảng mất GPS dài nhất</span><b id="gap">–</b></div>
+ </div>
+</div>
+<button id="go">Bắt đầu (bật GPS + tiếng pô)</button>
+<button class="sec" id="mute">Tắt tiếng</button>
+<div class="card" style="margin-top:12px"><h2>Kết quả (chụp ảnh ô này)</h2><div id="code">Chưa chạy.</div></div>
+<script>
+var $=function(i){return document.getElementById(i)};
+var T0=Date.now(),S={fix:0,fixHid:0,hid:0,vmax:0,gap:0,lastFix:0,srcSpeed:0,srcCalc:0,accSum:0,errs:[],audHid:null,moveS:0,ctxStates:{}};
+var times=[],last=null,speed=0,hidden=false,hidAt=0;
+function cap(name,ok,note){return '<div class="row"><span>'+name+'</span><b class="'+(ok?'ok':'bad')+'">'+(ok?'có':'không')+(note?' · '+note:'')+'</b></div>'}
+var AC=window.AudioContext||window.webkitAudioContext;
+$('caps').innerHTML=cap('Trang an toàn (https)',window.isSecureContext)+cap('Định vị (GPS)','geolocation' in navigator)+cap('Web Audio',!!AC)+
+ cap('AudioWorklet',!!(AC&&AC.prototype&&'audioWorklet' in AC.prototype))+cap('Cảm biến chuyển động','DeviceMotionEvent' in window)+
+ cap('Giữ màn hình sáng','wakeLock' in navigator)+'<div class="row"><span>Màn hình</span><b>'+screen.width+'×'+screen.height+' @'+(window.devicePixelRatio||1)+'</b></div>';
+// ---- GPS ----
+function dist(a,b){var R=6371000,r=Math.PI/180,dl=(b.latitude-a.latitude)*r,dn=(b.longitude-a.longitude)*r;
+ var h=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a.latitude*r)*Math.cos(b.latitude*r)*Math.sin(dn/2)*Math.sin(dn/2);return 2*R*Math.asin(Math.sqrt(h))}
+function onFix(p){var c=p.coords,t=p.timestamp||Date.now(),v=null;
+ if(c.speed!=null&&!isNaN(c.speed)&&c.speed>=0){v=c.speed;S.srcSpeed++;$('src').textContent='có sẵn từ GPS'}
+ else if(last){var dt=(t-last.t)/1000;if(dt>0.3){v=dist(last.c,c)/dt;S.srcCalc++;$('src').textContent='tự tính từ vị trí'}}
+ if(S.lastFix){var g=(Date.now()-S.lastFix)/1000;if(g>S.gap)S.gap=g}
+ S.lastFix=Date.now();last={c:c,t:t};S.fix++;if(hidden)S.fixHid++;S.accSum+=c.accuracy||0;
+ times.push(Date.now());while(times.length&&times[0]<Date.now()-5000)times.shift();
+ if(v!=null){speed=v;if(v*3.6>S.vmax)S.vmax=v*3.6}
+ $('acc').textContent=c.accuracy?Math.round(c.accuracy)+' m':'–';$('nfix').textContent=S.fix}
+function onErr(e){S.errs.push(e.code+':'+e.message);$('src').innerHTML='<span class="bad">lỗi '+e.code+' – '+e.message+'</span>'}
+// ---- Am thanh: may 6 xi lanh, hop so 6 cap ----
+var ctx,osc1,osc2,sub,nz,lp,gain,master,shaper,on=false,rpm=900,gear=1,prevV=0,thr=0;
+var RAT=[0,3.6,2.3,1.65,1.25,1.0,0.82],FD=3.4,WHEEL=2.05;
+function curve(k){var n=1024,c=new Float32Array(n);for(var i=0;i<n;i++){var x=i*2/n-1;c[i]=(1+k)*x/(1+k*Math.abs(x))}return c}
+function startAudio(){if(ctx){ctx.resume();return}ctx=new AC();master=ctx.createGain();master.gain.value=0.6;master.connect(ctx.destination);
+ lp=ctx.createBiquadFilter();lp.type='lowpass';lp.Q.value=4;shaper=ctx.createWaveShaper();shaper.curve=curve(6);gain=ctx.createGain();gain.gain.value=0.15;
+ osc1=ctx.createOscillator();osc1.type='sawtooth';osc2=ctx.createOscillator();osc2.type='square';sub=ctx.createOscillator();sub.type='sine';
+ var g2=ctx.createGain();g2.gain.value=0.35;var gs=ctx.createGain();gs.gain.value=0.6;
+ var b=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate),d=b.getChannelData(0);for(var i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+ nz=ctx.createBufferSource();nz.buffer=b;nz.loop=true;var nf=ctx.createBiquadFilter();nf.type='bandpass';nf.frequency.value=900;nf.Q.value=0.8;var ng=ctx.createGain();ng.gain.value=0.05;
+ osc1.connect(shaper);osc2.connect(g2);g2.connect(shaper);shaper.connect(lp);sub.connect(gs);gs.connect(gain);lp.connect(gain);nz.connect(nf);nf.connect(ng);ng.connect(gain);gain.connect(master);
+ osc1.start();osc2.start();sub.start();nz.start();
+ ctx.onstatechange=function(){S.ctxStates[ctx.state]=(S.ctxStates[ctx.state]||0)+1};on=true}
+function engine(){if(!ctx)return;var sv=+$('sim').value,v=sv>0?sv/3.6:speed,now=ctx.currentTime;
+ var a=(v-prevV)/0.1;prevV=v;thr+=((a>0.3?Math.min(1,0.35+a/3):0.12)-thr)*0.15;
+ var wheelRpm=v/WHEEL*60;var r=wheelRpm*RAT[gear]*FD;
+ if(r>6200&&gear<6&&thr>0.3)gear++;else if(r>5200&&gear<6&&thr<=0.3)gear++;else if(r<1500&&gear>1)gear--;
+ r=Math.max(850,wheelRpm*RAT[gear]*FD);rpm+=(r-rpm)*0.25;var f=rpm/60*3;
+ osc1.frequency.setTargetAtTime(f,now,0.03);osc2.frequency.setTargetAtTime(f*0.5,now,0.03);sub.frequency.setTargetAtTime(f*0.5,now,0.03);
+ lp.frequency.setTargetAtTime(300+thr*2200+rpm*0.25,now,0.05);gain.gain.setTargetAtTime(on?0.06+thr*0.18:0,now,0.08);
+ $('rpm').textContent=Math.round(rpm)+' v/p · số '+gear;$('aud').textContent=on?ctx.state:'tắt';$('simv').textContent=sv>0?sv+' km/h':'tắt'}
+// ---- Theo doi an trang ----
+document.addEventListener('visibilitychange',function(){hidden=document.hidden;if(hidden){S.hid++;hidAt=Date.now()}else if(ctx){S.audHid=(S.audHid||'')+(ctx.state==='running'?'C':'K')}});
+// ---- Vong lap ----
+var running=false;
+$('go').onclick=function(){if(!running){running=true;T0=Date.now();
+ if('geolocation' in navigator)navigator.geolocation.watchPosition(onFix,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:15000});
+ if('wakeLock' in navigator)navigator.wakeLock.request('screen').catch(function(){});
+ setInterval(engine,100);setInterval(ui,500);this.textContent='Đang chạy…'}
+ startAudio()};
+$('mute').onclick=function(){on=!on;this.textContent=on?'Tắt tiếng':'Bật tiếng'};
+function ui(){var up=(Date.now()-T0)/1000;$('up').textContent=Math.floor(up/60)+':'+('0'+Math.floor(up%60)).slice(-2);
+ if(speed*3.6>5)S.moveS+=0.5;
+ $('spd').innerHTML=(S.fix?Math.round(speed*3.6):'--')+'<small> km/h</small>';$('hz').textContent=(times.length/5).toFixed(1);
+ $('nhid').textContent=S.hid;$('fixhid').textContent=S.fixHid;$('vmax').textContent=Math.round(S.vmax)+' km/h';$('gap').textContent=S.gap?S.gap.toFixed(1)+' s':'–';
+ $('audhid').textContent=S.audHid==null?'chưa ẩn':(S.audHid.indexOf('K')<0?'có':'bị dừng');
+ $('code').textContent='NDA-VF7 v1 | chay '+Math.round(up)+'s | dichuyen '+Math.round(S.moveS)+'s | vmax '+Math.round(S.vmax)+
+  '\nGPS fix '+S.fix+' | hz '+(times.length/5).toFixed(1)+' | spd(goc/tinh) '+S.srcSpeed+'/'+S.srcCalc+' | acc tb '+(S.fix?Math.round(S.accSum/S.fix):'-')+'m | gap max '+S.gap.toFixed(1)+'s'+
+  '\nAn trang '+S.hid+' lan | fix khi an '+S.fixHid+' | audio khi an '+(S.audHid||'-')+' | audio '+(ctx?ctx.state+' '+ctx.sampleRate+'Hz':'-')+' '+JSON.stringify(S.ctxStates)+
+  '\nhttps '+(window.isSecureContext?1:0)+' | worklet '+(AC&&'audioWorklet' in AC.prototype?1:0)+' | motion '+('DeviceMotionEvent' in window?1:0)+' | man '+screen.width+'x'+screen.height+
+  (S.errs.length?'\nLoi: '+S.errs.slice(-3).join(' ; '):'')+'\nUA: '+navigator.userAgent}
+</script></body></html>
