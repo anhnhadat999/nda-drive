@@ -106,6 +106,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
 - (void)resumeAfterMeasurement {
     _measuring = NO;
     NSError *err = nil;
+    [AVAudioSession.sharedInstance setPreferredInput:nil error:nil];
     [AVAudioSession.sharedInstance setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeDefault
                                        options:AVAudioSessionCategoryOptionMixWithOthers error:&err];
     _sessionReady = NO;

@@ -159,7 +159,8 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         @"calibration_saved": @{ @"theta": [d objectForKey:@"cal.theta"] ?: [NSNull null] },
         @"events_total": [d dictionaryForKey:@"diag.total"] ?: @{},
         @"acoustic": ^NSDictionary *{
-            NSDictionary *last = [NSUserDefaults.standardUserDefaults dictionaryForKey:@"acoustic.last"] ?: @{};
+            NSMutableDictionary *last = [([NSUserDefaults.standardUserDefaults dictionaryForKey:@"acoustic.last"] ?: @{}) mutableCopy];
+            last[@"routes_tried"] = [NSUserDefaults.standardUserDefaults arrayForKey:@"acoustic.routes"] ?: @[];
             PAAcousticResult ar; if (![PAAcousticMeasure loadSaved:&ar]) return @{ @"measured": @NO, @"last_attempt": last };
             NSMutableArray *bands = [NSMutableArray array], *corr = [NSMutableArray array];
             for (int b = 0; b < PAA_BANDS; b++) [bands addObject:@{ @"hz": @(PAA_BAND_HZ[b]), @"db": @(round(ar.respDb[b] * 10) / 10), @"abs_db": @(round(ar.absDb[b] * 10) / 10) }];
