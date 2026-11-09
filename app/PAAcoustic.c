@@ -19,42 +19,55 @@ int paa_make_sweep(float *out, int maxN, double sr, double f1, double f2, double
     return n;
 }
 
-// Tim do tre: (1) tim thoi diem nang luong tang vot so voi on nen (khoi 5 ms) trong 0..3 s
-// - CarPlay khong day tre 1-2 s; (2) tuong quan cheo day du quanh do (+-40 ms).
-// Neu khong thay diem tang vot thi tuong quan cheo tho trong 0..600 ms nhu cu.
+// FFT phuc radix-2 tai cho (n la luy thua cua 2)
+static void fft(double *re, double *im, int n, int inv) {
+    for (int i = 1, j = 0; i < n; i++) {
+        int bit = n >> 1; for (; j & bit; bit >>= 1) j ^= bit; j ^= bit;
+        if (i < j) { double t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+    }
+    for (int len = 2; len <= n; len <<= 1) {
+        double ang = 2 * M_PI / len * (inv ? 1 : -1), wr = cos(ang), wi = sin(ang);
+        for (int i = 0; i < n; i += len) {
+            double cr = 1, ci = 0;
+            for (int k = 0; k < len / 2; k++) {
+                int a = i + k, b = a + len / 2;
+                double xr = re[b] * cr - im[b] * ci, xi = re[b] * ci + im[b] * cr;
+                re[b] = re[a] - xr; im[b] = im[a] - xi; re[a] += xr; im[a] += xi;
+                double t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+            }
+        }
+    }
+}
+
+// Tim do tre 0..3 s (CarPlay khong day tre 1-2 s) bang tuong quan cheo qua FFT ("loc phoi hop"):
+// tieng quet dai 8 s cho do loi xu ly rat lon -> van tim dung khi on khoang xe to hon tieng quet.
+// Ca hai tin hieu duoc loc bo phan duoi ~150 Hz (noi tap trung tieng u dieu hoa / gio).
 static int find_lag(const float *x, int nS, const float *y, int nY, int playStart, double sr) {
-    int B = (int)(0.005 * sr); if (B < 8) B = 8;
-    double ne = 0; int nn = playStart - (int)(0.1 * sr);
-    for (int i = 0; i < nn; i++) ne += (double)y[i] * y[i];
-    double nb = nn > 0 ? ne / nn * B : 1e-12;
-    int coarse = -1, maxL = (int)(3.0 * sr);
-    for (int L = 0; L + 4 * B < maxL && playStart + L + 4 * B < nY; L += B) {
-        double e = 0;   // 4 khoi lien tiep deu vuot on nen 10 dB
-        int ok = 1;
-        for (int k = 0; k < 4 && ok; k++) {
-            e = 0; for (int i = 0; i < B; i++) { double v = y[playStart + L + k * B + i]; e += v * v; }
-            if (e < nb * 10) ok = 0;
-        }
-        if (ok) { coarse = L; break; }
+    int maxLag = (int)(3.0 * sr);
+    int ny = nY - playStart; if (ny <= 0) return 0;
+    if (ny > nS + maxLag) ny = nS + maxLag;
+    int n = 1; while (n < ny + nS) n <<= 1;
+    double *ar = calloc(n, sizeof(double)), *ai = calloc(n, sizeof(double));
+    double *br = calloc(n, sizeof(double)), *bi = calloc(n, sizeof(double));
+    if (!ar || !ai || !br || !bi) { free(ar); free(ai); free(br); free(bi); return 0; }
+    double c = exp(-2 * M_PI * 150 / sr), px = 0, py = 0, hx = 0, hy = 0, hx2 = 0, hy2 = 0, px2 = 0, py2 = 0;
+    for (int i = 0; i < nS; i++) {      // 2 tang thong cao bac 1
+        double v = x[i]; hx = c * (hx + v - px); px = v; hx2 = c * (hx2 + hx - px2); px2 = hx; ar[i] = hx2;
     }
-    int len = (int)(1.0 * sr); if (len > nS) len = nS;
-    int lo, hi, step;
-    if (coarse >= 0) { lo = coarse - (int)(0.04 * sr); hi = coarse + (int)(0.04 * sr); step = 1; }
-    else { lo = 0; hi = (int)(0.6 * sr); step = 4; }
-    if (lo < 0) lo = 0;
-    int best = lo; double bv = -1;
-    for (int L = lo; L <= hi; L += step) {
-        int base = playStart + L; if (base + len >= nY) break;
-        double s = 0; for (int i = 0; i < len; i += 2) s += (double)x[i] * y[base + i];
-        if (fabs(s) > bv) { bv = fabs(s); best = L; }
+    for (int i = 0; i < ny; i++) {
+        double v = y[playStart + i]; hy = c * (hy + v - py); py = v; hy2 = c * (hy2 + hy - py2); py2 = hy; br[i] = hy2;
     }
-    if (step > 1) {   // tinh chinh
-        int c = best; for (int L = c - step; L <= c + step; L++) {
-            if (L < 0) continue; int base = playStart + L; if (base + len >= nY) continue;
-            double s = 0; for (int i = 0; i < len; i += 2) s += (double)x[i] * y[base + i];
-            if (fabs(s) > bv) { bv = fabs(s); best = L; }
-        }
+    fft(ar, ai, n, 0); fft(br, bi, n, 0);
+    for (int k = 0; k < n; k++) {       // Y * conj(X)
+        double r = br[k] * ar[k] + bi[k] * ai[k], im = bi[k] * ar[k] - br[k] * ai[k];
+        // lam trang pho (PHAT) mot phan: giam anh huong cua dai tan to nhat
+        double m = sqrt(r * r + im * im); double w = 1.0 / pow(m + 1e-12, 0.5);
+        br[k] = r * w; bi[k] = im * w;
     }
+    fft(br, bi, n, 1);
+    int best = 0; double bv = -1;
+    for (int L = 0; L <= maxLag && L < n; L++) if (fabs(br[L]) > bv) { bv = fabs(br[L]); best = L; }
+    free(ar); free(ai); free(br); free(bi);
     return best;
 }
 
@@ -63,34 +76,54 @@ void paa_analyze(const float *x, int nS, const float *y, int nY, int playStart, 
     memset(r, 0, sizeof *r);
     int lag = find_lag(x, nS, y, nY, playStart, sr);
     r->latencyMs = lag * 1000.0 / sr;
-    // on nen: doan im lang truoc khi phat
-    double ne = 0; int nn = playStart > (int)(0.1 * sr) ? playStart - (int)(0.1 * sr) : 0;
-    for (int i = 0; i < nn; i++) ne += (double)y[i] * y[i];
-    double noiseRms = nn > 0 ? sqrt(ne / nn) : 1e-9;
-    r->noiseDbfs = 20 * log10(noiseRms + 1e-12);
-    double sigE = 0; int ok[PAA_BANDS];
+    // on nen: doan im lang truoc khi phat (bo 0,25 s dau: tieng "bup" khi bat mic)
+    int n0 = (int)(0.25 * sr), n1 = playStart - (int)(0.1 * sr);
+    if (n1 - n0 < (int)(0.2 * sr)) n0 = 0;
+    if (n1 < 1) n1 = 1;
+    double ne = 0; for (int i = n0; i < n1; i++) ne += (double)y[i] * y[i];
+    double noiseRms = sqrt(ne / (n1 - n0 > 0 ? n1 - n0 : 1)) + 1e-12;
+    r->noiseDbfs = 20 * log10(noiseRms);
+    int ok[PAA_BANDS]; double bsnr[PAA_BANDS];
     double lnr = log(f2 / f1);
     for (int b = 0; b < PAA_BANDS; b++) {
-        double lo = PAA_BAND_HZ[b] / pow(2, 1.0 / 6), hi = PAA_BAND_HZ[b] * pow(2, 1.0 / 6);
-        ok[b] = lo >= f1 * 0.85 && hi <= f2;   // dai nam tron trong vung quet (vd mic xe 16 kHz chi do toi ~7 kHz)
-        if (lo < f1) lo = f1; if (hi > f2) hi = f2;
-        if (hi <= lo) { ok[b] = 0; r->respDb[b] = r->absDb[b] = 0; continue; }
-        // doan thoi gian ma tieng quet di qua dai nay
+        double fc = PAA_BAND_HZ[b];
+        double lo = fc / pow(2, 1.0 / 6), hi = fc * pow(2, 1.0 / 6);
+        ok[b] = lo >= f1 * 0.85 && hi <= f2 && fc < sr * 0.45;
+        bsnr[b] = -99; r->respDb[b] = r->absDb[b] = 0;
+        if (!ok[b]) continue;
+        if (lo < f1) lo = f1;
+        // Loc thong dai 1/3 quang tam: chi so nang luong TRONG dai nay -> tieng on o dai khac (gio, dieu hoa) khong anh huong
+        double k[5]; { double w = 2 * M_PI * fc / sr, al = sin(w) / (2 * 4.32), a0 = 1 + al;
+            k[0] = al / a0; k[1] = 0; k[2] = -al / a0; k[3] = -2 * cos(w) / a0; k[4] = (1 - al) / a0; }
         int i0 = (int)(T * log(lo / f1) / lnr * sr), i1 = (int)(T * log(hi / f1) / lnr * sr);
         if (i1 > nS) i1 = nS;
-        double ex = 0, ey = 0;
-        for (int i = i0; i < i1; i++) {
-            int j = playStart + lag + i; if (j >= nY) break;
-            ex += (double)x[i] * x[i]; ey += (double)y[j] * y[j];
+        int warm = (int)(0.06 * sr);
+        double zx[2] = {0, 0}, zy[2] = {0, 0}, ex = 0, ey = 0;
+        for (int i = i0 - warm; i < i1; i++) {
+            double xv = (i >= 0 && i < nS) ? x[i] : 0;
+            int j = playStart + lag + i; double yv = (j >= 0 && j < nY) ? y[j] : 0;
+            double ox = k[0] * xv + zx[0]; zx[0] = k[1] * xv - k[3] * ox + zx[1]; zx[1] = k[2] * xv - k[4] * ox;
+            double oy = k[0] * yv + zy[0]; zy[0] = k[1] * yv - k[3] * oy + zy[1]; zy[1] = k[2] * yv - k[4] * oy;
+            if (i >= i0) { ex += ox * ox; ey += oy * oy; }
         }
-        // tru nang luong nhieu nen tuong ung
-        double nE = noiseRms * noiseRms * (i1 - i0);
-        double eyc = ey - nE; if (eyc < ey * 0.01) eyc = ey * 0.01;
+        double zn[2] = {0, 0}, en = 0; int cn = 0;
+        for (int i = n0; i < n1; i++) {
+            double yv = y[i], o = k[0] * yv + zn[0]; zn[0] = k[1] * yv - k[3] * o + zn[1]; zn[1] = k[2] * yv - k[4] * o;
+            if (i - n0 > warm) { en += o * o; cn++; }
+        }
+        int len = i1 - i0 > 0 ? i1 - i0 : 1;
+        double pn = cn > 0 ? en / cn : 1e-20, py = ey / len;
+        bsnr[b] = 10 * log10((py + 1e-20) / (pn + 1e-20));
+        double eyc = ey - pn * len; if (eyc < ey * 0.01) eyc = ey * 0.01;
         r->absDb[b] = 10 * log10((eyc + 1e-20) / (ex + 1e-20));
-        sigE += ey;
+        if (bsnr[b] < 3) ok[b] = 0;              // dai nay chim trong on: khong dung de bu
     }
-    int ns = (int)(T * sr);
-    r->snrDb = 10 * log10((sigE / (ns > 0 ? ns : 1) + 1e-20) / (noiseRms * noiseRms + 1e-20));
+    // SNR tong: trung vi SNR cac dai do duoc
+    double v[PAA_BANDS]; int nv = 0;
+    for (int b = 0; b < PAA_BANDS; b++) if (bsnr[b] > -98) v[nv++] = bsnr[b];
+    for (int i = 1; i < nv; i++) { double t = v[i]; int j = i - 1; while (j >= 0 && v[j] > t) { v[j + 1] = v[j]; j--; } v[j + 1] = t; }
+    r->snrDb = nv ? v[nv / 2] : 0;
+    int good = 0; for (int b = 0; b < PAA_BANDS; b++) good += ok[b];
     // chuan hoa quanh dai giua 200 Hz - 4 kHz
     double ref = 0; int rc = 0;
     for (int b = 0; b < PAA_BANDS; b++) if (ok[b] && PAA_BAND_HZ[b] >= 200 && PAA_BAND_HZ[b] <= 4000) { ref += r->absDb[b]; rc++; }
@@ -106,5 +139,5 @@ void paa_analyze(const float *x, int nS, const float *y, int nY, int playStart, 
         if (PAA_OCT_HZ[o] >= 16000) corr = 0;       // tren 10 kHz khong do duoc tin cay
         r->corrDb[o] = corr;
     }
-    r->valid = r->snrDb > 10;
+    r->valid = r->snrDb > 10 && good >= 8;
 }

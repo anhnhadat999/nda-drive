@@ -106,6 +106,7 @@ static const double kF1 = 40, kF2 = 16000, kT = 8, kPre = 1.0, kPost = 3.5;   //
                     NSString *m = carMic
                         ? [NSString stringWithFormat:@"Mic xe không nghe rõ tiếng quét (SNR %.0f dB). Xe thường tự lọc bỏ tiếng loa khỏi mic (chống vọng khi gọi điện). Hãy chọn \"Mic iPhone\", đặt máy ở giữa xe rồi đo lại.", r.snrDb]
                         : [NSString stringWithFormat:@"Tiếng đo quá nhỏ so với tiếng ồn (SNR %.0f dB). Tăng âm lượng xe, đóng cửa, tắt điều hòa rồi đo lại.", r.snrDb];
+                    m = [m stringByAppendingFormat:@"\n\nChẩn đoán: loa %@ · mic %@ · %.0f Hz · trễ %.0f ms · mức thu đỉnh %.0f dBFS · ồn %.0f dBFS", outName, micName, sr, r.latencyMs, 20 * log10(pk + 1e-9), r.noiseDbfs];
                     done(r, m); return;
                 }
                 [self save:r];
