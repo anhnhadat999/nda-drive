@@ -1,0 +1,39 @@
+AINO PROXY - cho trinh duyet Sony Ericsson Aino (U10i) luot web hien nay
+=========================================================================
+
+Proxy chay tren may tinh Windows. Dien thoai noi Wi-Fi cung mang nha, tro proxy ve may tinh.
+Proxy se: mo cac trang https hien nay thay dien thoai, bo JavaScript/CSS nang, thu nho anh,
+chia trang dai thanh nhieu trang nho, va ghi lai moi truy van vao thu muc "logs".
+
+CAI DAT (1 lan)
+1. Cai Python 3 cho Windows: https://www.python.org/downloads/
+   -> Khi cai NHO TICK o "Add python.exe to PATH".
+2. Giai nen thu muc nay vao dau do (vd: C:\AinoProxy).
+3. Bam dup "CHAY-PROXY.bat".
+   - Lan dau se tu cai them Pillow (de thu nho anh).
+   - Windows hoi tuong lua (Firewall): tick "Private networks / Mang rieng" -> Allow.
+4. Cua so den hien:  Dia chi proxy : 192.168.x.x   Cong : 8080
+   -> Ghi lai 2 so nay. De cua so mo trong luc dung.
+
+TREN DIEN THOAI AINO
+1. Ket noi Wi-Fi nha (cung mang voi may tinh).
+2. Vao cai dat Wi-Fi cua mang do (Cai dat > Ket noi > Wi-Fi > chon mang > Cai dat nang cao/Proxy):
+   - Bat proxy, Dia chi = so 192.168.x.x o tren, Cong = 8080.
+   (Neu khong thay muc proxy trong Wi-Fi: vao Cai dat > Ket noi > Cai dat Internet > tai khoan
+    Internet dang dung > Cai dat proxy.)
+3. Mo trinh duyet, vao:  http://aino/
+   -> Trang chu co o tim kiem, lien ket nhanh (Wikipedia, bao, thoi tiet).
+4. Go dia chi bat ky BANG http:// (vd http://vnexpress.net) - proxy tu mo ban https.
+
+MEO
+- Trang chu > "Anh: bat/tat" de tat anh cho tai nhanh hon.
+- Trang dai co nut "Sau >>" o tren va duoi.
+- Dang nhap tai khoan qua proxy: chi nen dung voi trang khong quan trong (proxy chay tren may
+  nha anh nen an toan trong mang nha, nhung trang cu khong co ma hoa giua dien thoai va may tinh).
+- Proxy chi nhan ket noi tu mang nha (192.168.x.x), nguoi ngoai khong dung ke duoc.
+
+THU MUC logs
+- requests-*.log : moi trang dien thoai da mo.
+- services-*.log : truy van cua ung dung/dich vu he thong (khong phai trinh duyet), kem noi dung.
+  Day la du lieu de dung lai server cho cac tinh nang cu (thoi tiet, TrackID, PlayNow...).
+  Muon lam tiep: mo tung tinh nang tren may khi dang dung proxy, roi gui file services-*.log cho Claude.
