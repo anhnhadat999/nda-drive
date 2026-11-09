@@ -17,6 +17,8 @@ extern NSString *const PAEngineDidUpdateNotification;
 @property (nonatomic, readonly) NSString *locationStatusText;
 @property (nonatomic, readonly) NSString *sensorStatusText;   // trang thai bo hop nhat cam bien
 @property (nonatomic, readonly) PASynth *synth;
+@property (nonatomic, readonly) double outputLatencyMs;   // do tre tu app toi loa (iOS bao)
+@property (nonatomic) BOOL latencyComp;                 // bu do tre loa bang du doan
 
 // Cai dat (luu lai tu dong)
 @property (nonatomic) BOOL enabled;              // bat/tat Po Ao

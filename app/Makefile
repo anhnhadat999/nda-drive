@@ -6,7 +6,7 @@ include $(THEOS)/makefiles/common.mk
 
 APPLICATION_NAME = NDADrive
 NDADrive_LIBRARIES = z
-NDADrive_FILES = main.m PAAppDelegate.m PARootViewController.m PACarsViewController.m PASettingsViewController.m PACalibrationViewController.m PALearnViewController.m PATripsViewController.m PAAcousticViewController.m PAAcousticMeasure.m PAUpdater.m PALog.m PADiag.m PAEngine.m PAMotion.m PASynth.c PAFusion.c PALearn.c PAAcoustic.c PAZip.c
+NDADrive_FILES = main.m PAAppDelegate.m PARootViewController.m PACarsViewController.m PASettingsViewController.m PACalibrationViewController.m PALearnViewController.m PATripsViewController.m PAAcousticViewController.m PASyncViewController.m PAAcousticMeasure.m PAUpdater.m PALog.m PADiag.m PAEngine.m PAMotion.m PASynth.c PAFusion.c PALearn.c PAAcoustic.c PAZip.c
 NDADrive_FRAMEWORKS = UIKit AVFoundation CoreLocation CoreMotion
 NDADrive_CFLAGS = -fobjc-arc -Wno-error -Wno-deprecated-declarations
 

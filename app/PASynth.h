@@ -47,6 +47,7 @@ typedef struct {
     volatile double learnSport;   // 0 em .. 1 the thao          // mo phong tieng truyen tu ong xa phia sau qua khoang xe         // tu tang am luong theo toc do (bu tieng gio, tieng lop)
     volatile double gpsSpeed;     // km/h, -1 = chua co
     volatile double gpsAccel;     // km/h/s
+    volatile double leadS;        // bu do tre loa (CarPlay): du doan truoc bay nhieu giay
     volatile double gpsAge;       // giay ke tu ban tin cuoi (luong audio tu cong them)
     // (gpsSpeed/gpsAccel nay la toc do & gia toc DA HOP NHAT GPS + cam bien, cap nhat 100 lan/giay)
     volatile double grade;        // do doc (sin goc) tu ap ke

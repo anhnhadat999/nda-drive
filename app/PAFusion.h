@@ -14,7 +14,8 @@
 extern "C" {
 #endif
 
-#define PAF_HIST 256
+#define PAF_HIST 512
+#define PAF_NDLY 11
 
 typedef struct {
     // ---------- Ket qua ----------
@@ -49,6 +50,12 @@ typedef struct {
     double aLongRaw;                // gia toc doc xe tuc thoi (chua loc), de hien thi
     int savedPending; long nImu;
     double savedTheta, savedG[3];
+    // hoc huong xe bang LUC VAO CUA (khong can GPS chinh xac): gia toc ngang = toc do x toc do quay
+    double Lx, Ly, Lc;
+    int calByTurn;                  // lan hoc gan nhat la nho vao cua
+    // tu uoc luong do tre GPS (GPS cua xe qua CarPlay tre 1-2 s, cap nhat ~2 s/lan)
+    double dlyErr[PAF_NDLY]; double gpsDelay; long dlyN;
+    double lastFixT;                // thoi diem cam bien luc nhan ban tin GPS moi
 } PAFusion;
 
 void paf_init(PAFusion *f);

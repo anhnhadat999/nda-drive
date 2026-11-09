@@ -44,7 +44,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
         [d registerDefaults:@{ @"enabled": @YES, @"onlyWithCarPlay": @YES, @"preset": @"gt3",
                                @"volume": @0.7, @"tone": @0.5, @"pops": @YES, @"shiftPop": @YES,
-                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7, @"subAmt": @0.6, @"acousticCorr": @YES }];
+                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7, @"subAmt": @0.6, @"acousticCorr": @YES, @"latComp": @YES }];
         _enabled = [d boolForKey:@"enabled"];
         _onlyWithCarPlay = [d boolForKey:@"onlyWithCarPlay"];
         _presetKey = [d stringForKey:@"preset"] ?: @"gt3";
@@ -60,6 +60,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _recordEnabled = [d boolForKey:@"record"];
         _rearAmount = [d doubleForKey:@"rearAmt"];
         _subAmount = [d doubleForKey:@"subAmt"];
+        _latencyComp = [d boolForKey:@"latComp"];
         _acousticCorrection = [d boolForKey:@"acousticCorr"];
         [self applySettings];
     }
@@ -116,6 +117,13 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     }
     [self startAudio];
     [self applySettings];
+}
+- (void)setLatencyComp:(BOOL)v { _latencyComp = v; [self save:@(v) key:@"latComp"]; [self updateLatency]; }
+- (void)updateLatency {
+    AVAudioSession *as = AVAudioSession.sharedInstance;
+    _outputLatencyMs = (as.outputLatency + as.IOBufferDuration) * 1000;
+    _synth.leadS = _latencyComp ? fmin(0.4, _outputLatencyMs / 1000.0) : 0;
+    ((PAMotion *)_motion).audioLatencyMs = _outputLatencyMs;
 }
 - (void)setSubAmount:(double)v { _subAmount = v; [self save:@(v) key:@"subAmt"]; [self applySettings]; }
 - (void)setRearAmount:(double)v { _rearAmount = v; [self save:@(v) key:@"rearAmt"]; [self applySettings]; }
@@ -217,6 +225,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         [as setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeDefault
                 options:AVAudioSessionCategoryOptionMixWithOthers error:&err];
     }
+    [as setPreferredIOBufferDuration:0.005 error:nil];   // bo dem nho: tieng phan hoi nhanh hon
     if ([as setActive:YES error:&err]) _sessionReady = YES;
     else NSLog(@"[NDADrive] Khong kich hoat duoc phien am thanh: %@", err);
 }
@@ -356,6 +365,12 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
             PADiag *dg = PADiag.shared;
             [dg noteValue:_motion.imuHz forKey:@"imu_hz"];
             [dg noteValue:_motion.gpsRepeatRatio forKey:@"gps_repeat_ratio"];
+            [self updateLatency];
+            [dg noteValue:_outputLatencyMs forKey:@"audio_out_latency_ms"];
+            if (_motion.gpsDelayEst > 0) [dg noteValue:_motion.gpsDelayEst forKey:@"gps_delay_est_s"];
+            if (_motion.gpsNewInterval > 0) [dg noteValue:_motion.gpsNewInterval forKey:@"gps_new_interval_s"];
+            [dg noteValue:_motion.gpsFromCar ? 1 : 0 forKey:@"gps_from_car_ratio"];
+            [dg noteValue:_motion.calByTurn ? 1 : 0 forKey:@"cal_by_turn_ratio"];
             if (_motion.gpsHz > 0) [dg noteValue:_motion.gpsHz forKey:@"gps_hz"];
             if (_motion.gpsAccuracy > 0) [dg noteValue:_motion.gpsAccuracy forKey:@"gps_speed_acc_ms"];
             [dg noteValue:_motion.calibrated ? 1 : 0 forKey:@"calibrated_ratio"];

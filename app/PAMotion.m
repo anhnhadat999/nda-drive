@@ -4,6 +4,7 @@
 #import "PADiag.h"
 
 @implementation PAMotion {
+    double _newIntv, _lastNewWall, _lastRawSpeed, _lastRawCourse; int _newFixFlag; BOOL _fromCar;
     PASynth *_synth;
     PAFusion _f;
     CMMotionManager *_mm;
@@ -142,7 +143,7 @@
         NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyyMMdd_HHmmss";
         self->_tripStart = [NSDate date];
         self->_tripURL = [[PAMotion tripsFolder] URLByAppendingPathComponent:[NSString stringWithFormat:@"trip_%@.csv", [df stringFromDate:self->_tripStart]]];
-        NSString *head = @"t_s,gps_kmh,gps_acc_ms,fused_kmh,a_long_ms2,ax,ay,az,gyro_rads,grade_pct,tilt_deg,calibrated,stationary,gps_ok,src,synth_kmh,rpm,gear,load,state,cal_theta_deg\n";
+        NSString *head = @"t_s,gps_kmh,gps_acc_ms,fused_kmh,a_long_ms2,ax,ay,az,gyro_rads,grade_pct,tilt_deg,calibrated,stationary,gps_ok,src,synth_kmh,rpm,gear,load,state,cal_theta_deg,rx,ry,rz,gvx,gvy,gvz,gps_new,gps_delay_s,cal_turn,gps_car,lead_ms,audio_lat_ms\n";
         [head writeToURL:self->_tripURL atomically:YES encoding:NSUTF8StringEncoding error:nil];
         self->_trip = [NSFileHandle fileHandleForWritingToURL:self->_tripURL error:nil];
         [self->_trip seekToEndOfFile];
@@ -193,9 +194,11 @@
     double gm = sqrt(rr[0] * rr[0] + rr[1] * rr[1] + rr[2] * rr[2]);
     double gn = sqrt(gr[0] * gr[0] + gr[1] * gr[1] + gr[2] * gr[2]);
     double tilt = gn > 0 ? acos(fmin(1, fabs(gr[2]) / gn)) * 180 / M_PI : 0;
-    [_tripBuf appendFormat:@"%.2f,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.1f,%d,%d,%d,%d,%.2f,%.0f,%d,%.2f,%d,%.1f\n",
+    [_tripBuf appendFormat:@"%.2f,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.1f,%d,%d,%d,%d,%.2f,%.0f,%d,%.2f,%d,%.1f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d,%.2f,%d,%d,%.0f,%.0f\n",
         ts - _tripT0, _gpsRawKmh, _gpsAccuracy, v, _f.calibrated ? _f.aLongRaw : _f.a, ua[0], ua[1], ua[2], gm, _f.grade * 100, tilt,
-        _f.calibrated, _f.stationary, _f.gpsOk, _rawMode ? 2 : 1, _synth->speed, _synth->rpm, _synth->gear + 1, _synth->load, (int)_synth->state, _f.theta * 180 / M_PI];
+        _f.calibrated, _f.stationary, _f.gpsOk, _rawMode ? 2 : 1, _synth->speed, _synth->rpm, _synth->gear + 1, _synth->load, (int)_synth->state, _f.theta * 180 / M_PI,
+        rr[0], rr[1], rr[2], gr[0], gr[1], gr[2], _newFixFlag, self.gpsDelayEst, _f.calByTurn, _fromCar, _synth->leadS * 1000, self.audioLatencyMs];
+    _newFixFlag = 0;
     _tripRows++;
     if (_tripRows % 20 == 0) {           // ghi xuong may moi 2 giay
         [_trip writeData:[_tripBuf dataUsingEncoding:NSUTF8StringEncoding]];
@@ -236,6 +239,11 @@
     } else if (_rateT == 0) { _rateT = now; _imuCountPrev = _imuCount; _gpsCountPrev = _gpsCountI; }
 }
 - (double)gpsAge { return NSProcessInfo.processInfo.systemUptime - _lastGpsWall; }
+- (double)gpsDelayEst { return _f.dlyN > 6 ? _f.gpsDelay : 0; }
+- (BOOL)calByTurn { return _f.calByTurn; }
+- (double)aLongNow { return _f.calibrated ? _f.aLongRaw : _f.a; }
+- (double)gpsNewInterval { return _newIntv; }
+- (BOOL)gpsFromCar { return _fromCar; }
 - (double)gpsRepeatRatio { return _f.gpsTotal > 0 ? (double)_f.gpsRepTotal / _f.gpsTotal : 0; }
 - (BOOL)gpsOnlyFallback { return _running && self.imuAge > 0.5; }
 
@@ -323,6 +331,13 @@
     double course = loc.course;
     _gpsAccuracy = acc; _gpsRawKmh = speed >= 0 ? speed * 3.6 : -1;
     _gpsCountI++; _gpsCount = _gpsCountI;
+    if (@available(iOS 15.0, *)) { _fromCar = loc.sourceInformation.isProducedByAccessory; }
+    if (speed >= 0 && (speed != _lastRawSpeed || course != _lastRawCourse)) {   // ban tin MOI (khong lap so cu)
+        double nw = NSProcessInfo.processInfo.systemUptime;
+        if (_lastNewWall > 0 && nw - _lastNewWall < 10) _newIntv += ((nw - _lastNewWall) - _newIntv) * 0.2;
+        _lastNewWall = nw; _newFixFlag = 1;
+    }
+    _lastRawSpeed = speed; _lastRawCourse = course;
     double nowW = NSProcessInfo.processInfo.systemUptime;
     _lastGpsWall = nowW;
     // DU PHONG: cam bien chuyen dong khong gui so lieu (thuong do iOS khi tat man hinh)

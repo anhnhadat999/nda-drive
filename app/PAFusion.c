@@ -27,6 +27,7 @@ void paf_init(PAFusion *f) {
     f->lastGpsCourse = -1;
     f->quality = 0;
     f->sigScale = 1;
+    f->gpsDelay = 0.5;
 }
 
 void paf_load_calibration(PAFusion *f, double theta, const double g[3]) {
@@ -64,6 +65,7 @@ static void kf_update(PAFusion *f, double z, double R, double vRef) {
 
 static void reset_cal(PAFusion *f) {
     f->calibrated = 0; f->theta = 0; f->Sx = f->Sy = f->E = 0; f->calProgress = 0;
+    f->Lx = f->Ly = f->Lc = 0; f->calByTurn = 0;
 }
 
 void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], const double rot[3], double t) {
@@ -102,6 +104,36 @@ void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], cons
     double hx = dot3(userAcc, e1), hy = dot3(userAcc, e2);
     f->hxSum += hx; f->hySum += hy; f->hN++;
 
+    // ---- Hoc huong xe bang luc vao cua ----
+    // Gia toc huong tam = v * (toc do quay quanh truc thang dung) va vuong goc voi huong tien.
+    // Tuong quan gia toc ngang voi v*w cho truc NGANG xe; truc tien = truc ngang x truc len
+    // (dau tu dong dung du cam bien bao gia toc theo quy uoc nao). Khong can GPS chinh xac.
+    {
+        double wu = -dot3(rot, f->g);                 // quay quanh truc len (+ = re trai)
+        double vv = f->gpsOk ? fmax(f->v, f->lastGpsV) : f->v;
+        double c = vv * wu;
+        double kf = exp(-dt / 180.0);                 // quen dan sau ~3 phut
+        f->Lx = f->Lx * kf; f->Ly = f->Ly * kf; f->Lc = f->Lc * kf;
+        if (vv > 3 && fabs(wu) > 0.04 && fabs(wu) < 1.2 && f->moveT < 0.2) {
+            f->Lx += hx * c * dt; f->Ly += hy * c * dt; f->Lc += c * c * dt;
+        }
+        double Lm = sqrt(f->Lx * f->Lx + f->Ly * f->Ly);
+        if (!f->calibrated) f->calProgress = fmax(f->calProgress, fmin(0.95, f->Lc / 12.0));
+        if (f->Lc > 12 && Lm > 0.5 * f->Lc) {
+            double th = atan2(f->Lx, -f->Ly);         // e = L x len
+            // GPS (neu co bang chung manh) duoc quyen dao chieu
+            double sd = f->Sx * cos(th) + f->Sy * sin(th);
+            if (f->E > 2 && sd < -0.5 * f->E) th += M_PI;
+            if (!f->calibrated) {
+                f->theta = th; f->calibrated = 1; f->calProgress = 1; f->calByTurn = 1;
+                memcpy(f->gCal, f->g, sizeof f->g);
+            } else {
+                double d = atan2(sin(th - f->theta), cos(th - f->theta));
+                if (fabs(d) < 0.6) f->theta += d * fmin(1, dt * 0.5);
+            }
+        }
+    }
+
     double aLong = hx * cos(f->theta) + hy * sin(f->theta);
     f->aLongRaw = f->calibrated ? aLong - f->b : 0;
 
@@ -117,7 +149,7 @@ void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], cons
     f->gpsOk = f->hasGps && (t - f->lastFixWall) < GPS_LOST_S;
 
     // ---- Kalman: du doan ----
-    double aUse = f->calibrated ? (aLong - f->b) : f->aGps * 0.8; // chua hoc truc: ngoai suy theo gia toc GPS
+    double aUse = f->calibrated ? (aLong - f->b) : f->aGps * 0.8 * exp(-fmax(0, t - f->lastFixT) / 1.2); // chua hoc truc: ngoai suy GPS, giam dan
     double sigA = (f->calibrated ? SIG_A_CAL : SIG_A_UNCAL) * (f->sigScale > 0 ? f->sigScale : 1);
     if (!f->gpsOk && f->calibrated && (t - f->lastFixWall) > 25) aUse *= 0.5; // mat GPS lau: han che troi
     f->v += aUse * dt;
@@ -137,7 +169,7 @@ void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], cons
     f->histT[f->histI] = t; f->histV[f->histI] = f->v;
 
     // ---- Dau ra ----
-    double aOut = f->calibrated ? (aLong - f->b) : f->aGps;
+    double aOut = f->calibrated ? (aLong - f->b) : f->aGps * exp(-fmax(0, t - f->lastFixT) / 1.2);
     if (f->stationary) aOut = 0;
     f->aLp += (aOut - f->aLp) * fmin(1, dt / 0.12);
     f->a = f->aLp;
@@ -173,14 +205,28 @@ void paf_gps(PAFusion *f, double speed, double speedAcc, double course, double t
     f->gpsRep = 0;
 
     // ---- Kalman: cap nhat bang GPS (bu do tre) ----
-    double sa = speedAcc > 0 ? fmax(speedAcc, 0.2) : 0.8;
+    double sa = speedAcc > 0 ? fmax(speedAcc, 0.5) : 0.8;   // xe gui "0,2 m/s" co dinh: khong dang tin
     double R = sa * sa * 1.3;
+    f->lastFixT = f->t;
+    // Tu uoc luong do tre that cua GPS: thu cac do tre 0..2 s, giu cai khop lich su cam bien nhat
+    if (f->calibrated && speed > 2) {
+        for (int k = 0; k < PAF_NDLY; k++) {
+            int fd; double vh = hist_at(f, tFix - k * 0.2, &fd);
+            if (!fd) continue;
+            double e = speed - vh; f->dlyErr[k] += (e * e - f->dlyErr[k]) * 0.15;
+        }
+        if (++f->dlyN > 6) {
+            int bk = 0; for (int k = 1; k < PAF_NDLY; k++) if (f->dlyErr[k] < f->dlyErr[bk]) bk = k;
+            f->gpsDelay += (bk * 0.2 - f->gpsDelay) * 0.3;
+        }
+    }
+    double tEff = tFix - (f->dlyN > 6 ? f->gpsDelay : 0);
     int found;
-    double vRef = hist_at(f, tFix, &found);
+    double vRef = hist_at(f, tEff, &found);
     double before = f->v;
     kf_update(f, speed, R, found ? vRef : f->v);
     double corr = f->v - before;
-    if (found) for (int n = 0; n < PAF_HIST; n++) if (f->histT[n] >= tFix) f->histV[n] += corr;
+    if (found) for (int n = 0; n < PAF_HIST; n++) if (f->histT[n] >= tEff) f->histV[n] += corr;
 
     // ---- Hoc truc tien cua xe ----
     if (f->hasGps) {

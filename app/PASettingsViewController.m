@@ -9,6 +9,7 @@
 #import "PATripsViewController.h"
 #import "PADiag.h"
 #import "PAAcousticViewController.h"
+#import "PASyncViewController.h"
 
 typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
 
@@ -47,7 +48,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
         case SecLearn: return 4;
         case SecRun: return 2;
         case SecTest: return 2;
-        case SecStatus: return 3;
+        case SecStatus: return 4;
         case SecUpdate: return 3;
     }
     return 0;
@@ -157,6 +158,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         case SecStatus:
             if (ip.row == 0) return [self infoCell:@"Vị trí" detail:e.locationStatusText icon:@"location.fill" tappable:YES];
             if (ip.row == 1) return [self infoCell:@"Căn chỉnh cảm biến" detail:e.sensorStatusText icon:@"gyroscope" tappable:YES];
+            if (ip.row == 3) return [self infoCell:@"Phân tích đồng bộ tiếng – xe" detail:nil icon:@"waveform.path.ecg" tappable:YES];
             return [self infoCell:@"Xuất báo cáo cho Claude" detail:@"1 tệp .zip" icon:@"doc.zipper" tappable:YES];
         case SecUpdate:
             if (ip.row == 0) {
@@ -175,6 +177,10 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
+    if (ip.section == SecStatus && ip.row == 3) {
+        [self.navigationController pushViewController:[PASyncViewController new] animated:YES];
+        return;
+    }
     if (ip.section == SecStatus && ip.row == 0) {
         [PAEngine.shared requestLocationPermission];
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];

@@ -119,7 +119,7 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     // toc do muc tieu: GPS + du doan theo gia toc (GPS tre ~1 giay)
     double target = 0, accIn = 0;
     if (s->gpsSpeed >= 0 && s->gpsAge < 4) {
-        double ahead = s->gpsAge < 0.5 ? s->gpsAge : 0.5;
+        double ahead = (s->gpsAge < 0.5 ? s->gpsAge : 0.5) + fmin(0.4, fmax(0, s->leadS));
         target = s->gpsSpeed + s->gpsAccel * ahead;
         accIn = s->gpsAccel;
         if (target < 0) target = 0;
