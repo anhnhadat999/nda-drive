@@ -92,6 +92,8 @@ void pa_init(PASynth *s) {
     s->rng = 0x9E3779B9u;
     s->rearAmt = 0.7;
     s->subAmt = 0.6;
+    s->growl = 0.5;
+    s->crisp = 0.5;
 }
 
 static double learned_cap(PASynth *s, double v) {
@@ -119,7 +121,7 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     // toc do muc tieu: GPS + du doan theo gia toc (GPS tre ~1 giay)
     double target = 0, accIn = 0;
     if (s->gpsSpeed >= 0 && s->gpsAge < 4) {
-        double ahead = (s->gpsAge < 0.5 ? s->gpsAge : 0.5) + fmin(0.4, fmax(0, s->leadS));
+        double ahead = (s->gpsAge < 0.5 ? s->gpsAge : 0.5) + fmin(0.9, fmax(0, s->leadS));
         target = s->gpsSpeed + s->gpsAccel * ahead;
         accIn = s->gpsAccel;
         if (target < 0) target = 0;
@@ -243,18 +245,23 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
             double a = p->uneven[s->cylIdx] * (over ? 0.22 : 0.32 + 0.68 * loadA);
             if (cutting) a *= 0.05;
             if (a > s->env) s->env = a;
+            // Do don: moi lan xi lanh no, danh them mot "tach" sac net (nhieu tan cao, tat rat nhanh)
+            if (!over) s->crackEnv = fmax(s->crackEnv, (0.25 + 0.75 * loadA) * s->crisp);
             // Xe dien phanh tai sinh lau: no nhieu 1,5 s dau sau khi nha ga, roi thua dan (nhu xe xang that)
             double popFade = s->overT < 1.5 ? 1.0 : (s->overT < 4 ? 0.3 : 0.12);
-            if (over && s->pops && rpmA > 2300 && frand(s) < 0.035 * p->popK * (1 + rpmN) * popFade * popScale) {
+            if (over && s->pops && rpmA > 2000 && frand(s) < 0.035 * p->popK * (1 + rpmN) * popFade * popScale * (0.55 + 0.9 * s->crisp)) {
                 s->popEnv = 1;
                 s->popAmp = 0.5 + frand(s) * (frand(s) < .15 ? 1.6 : .7);
             }
         }
-        if (f > 0) s->env *= exp(-f / (sr * p->decay));
+        if (f > 0) s->env *= exp(-f / (sr * p->decay * (1 - 0.35 * s->crisp)));   // don hon -> xung ngan, net hon
         double nz = frand(s) * 2 - 1;
         s->noiseLp += 0.25 * (nz - s->noiseLp);
         double exc = s->env * (0.7 + p->noise * toneK * s->noiseLp * 2.2);
 
+        // Do gan/uy luc: nang cam giac tai o muc vua (lai em van gan), va tang than tieng tram
+        double loadV = loadA + s->growl * 0.45 * sqrt(loadA) * (1 - loadA);
+        if (loadV > 1) loadV = 1;
         double y = 0;
         for (int r = 0; r < 3; r++) {
             double fc = p->res[r][0] * (1 + 0.18 * rpmN) * (1 + 0.28 * vt);
@@ -264,7 +271,8 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
             s->svfLow[r] += F * s->svfBand[r];
             double high = exc - s->svfLow[r] - q * s->svfBand[r];
             s->svfBand[r] += F * high;
-            y += s->svfBand[r] * p->res[r][2] * (r == 0 ? 1 : toneK * (1 + 0.7 * vt));
+            double w = p->res[r][2] * (r == 0 ? (1 + 0.6 * s->growl) : toneK * (1 + 0.7 * vt));
+            y += s->svfBand[r] * w;
         }
         if (p->intake > 0) {
             // tieng hut gio: nhieu loc thong dai quanh boi so cua tan so no, manh khi dap ga
@@ -277,13 +285,19 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
         }
         s->phHalf += f / (2 * sr); if (s->phHalf >= 1) s->phHalf -= 1;
         double saw = s->ph * 2 - 1;
-        y += (saw * p->tone * 0.12 * toneK + sin(s->phHalf * TWO_PI) * p->half * 0.18) * (0.35 + 0.65 * loadA) * (cutting ? .2 : 1);
+        y += (saw * p->tone * 0.12 * toneK + sin(s->phHalf * TWO_PI) * p->half * (0.18 + 0.12 * s->growl)) * (0.35 + 0.65 * loadV) * (cutting ? .2 : 1);
 
         double lpF = p->lp0 + (p->lp1 - p->lp0) * (0.35 * rpmN + 0.65 * loadA) * (0.7 + 0.5 * tone) * (1 + 0.6 * vt);
         double a1 = 1 - exp(-TWO_PI * lpF / sr);
         s->lpY += a1 * (y - s->lpY);
-        double dr = p->drive * (0.55 + 0.9 * loadA) * (0.8 + 0.4 * tone) * (1 + 0.3 * vt);
+        double dr = p->drive * (0.55 + 0.9 * loadV + 0.4 * s->growl) * (0.8 + 0.4 * tone) * (1 + 0.3 * vt);
         double o = tanh(s->lpY * dr * 3) / tanh(dr) * 0.55;
+        // transient "tach" (do don): nhieu loc thong cao, tat sau ~6 ms
+        if (s->crackEnv > 0.001) {
+            s->crackEnv *= exp(-1 / (sr * 0.006));
+            double hp = nz - s->crackHp; s->crackHp += 0.6 * (nz - s->crackHp);
+            o += hp * s->crackEnv * 0.5;
+        }
 
         if (s->popEnv > 0.001) {
             s->popEnv *= exp(-1 / (sr * 0.028));

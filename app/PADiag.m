@@ -149,6 +149,7 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         @"settings": @{ @"enabled": @(e.enabled), @"auto_carplay": @(e.onlyWithCarPlay), @"preset": e.presetKey ?: @"",
                         @"volume": @(e.volume), @"tone": @(e.toneAmount), @"pops": @(e.popsEnabled), @"shift_pop": @(e.shiftPopEnabled),
                         @"auto_volume": @(e.autoVolume), @"rear_fx": @(e.rearEffect), @"rear_amount": @(e.rearAmount),
+                        @"growl": @(e.growl), @"crisp": @(e.crispness), @"sub": @(e.subAmount), @"latency_comp": @(e.latencyComp),
                         @"learn": @(e.learnEnabled), @"record": @(e.recordEnabled), @"speed_trim": @(e.speedTrim), @"response": @(e.responseMode), @"test_mode": @(e.testMode) },
         @"permissions": @{ @"location": e.locationStatusText ?: @"" },
         @"state_now": @{ @"engine_on": @(e.engineOn), @"carplay": @(e.carPlayConnected), @"sensor_source": m.sourceName ?: @"", @"imu_hz": @(m.imuHz), @"gps_hz": @(m.gpsHz),

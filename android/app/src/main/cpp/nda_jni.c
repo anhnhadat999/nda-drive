@@ -30,9 +30,9 @@ JNIEXPORT jstring JNICALL FN(presetName)(JNIEnv *e, jclass c, jint i) { return (
 JNIEXPORT jstring JNICALL FN(presetCar)(JNIEnv *e, jclass c, jint i) { return (*e)->NewStringUTF(e, PA_PRESETS[i].car); }
 
 JNIEXPORT void JNICALL FN(setParams)(JNIEnv *e, jclass c, jint preset, jdouble vol, jdouble tone, jboolean pops, jboolean shiftPop,
-        jboolean autoVol, jboolean rearFx, jdouble rearAmt, jdouble subAmt, jboolean learn, jdouble trim, jdouble resp) {
+        jboolean autoVol, jboolean rearFx, jdouble rearAmt, jdouble subAmt, jdouble growl, jdouble crisp, jboolean learn, jdouble trim, jdouble resp) {
     S.presetIndex = preset; S.volume = vol; S.toneAmt = tone; S.pops = pops; S.shiftPop = shiftPop;
-    S.autoVol = autoVol; S.rearFx = rearFx; S.rearAmt = rearAmt; S.subAmt = subAmt;
+    S.autoVol = autoVol; S.rearFx = rearFx; S.rearAmt = rearAmt; S.subAmt = subAmt; S.growl = growl; S.crisp = crisp;
     learnEnabled = learn; speedTrim = trim; F.sigScale = resp; push_learn();
 }
 JNIEXPORT void JNICALL FN(setLead)(JNIEnv *e, jclass c, jdouble s) { S.leadS = s; }

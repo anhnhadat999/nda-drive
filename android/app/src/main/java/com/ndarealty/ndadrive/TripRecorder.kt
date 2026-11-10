@@ -67,4 +67,4 @@ class TripRecorder(private val ctx: Context) {
     }
 }
 
-object BuildConfigLite { const val VERSION = "0.1.0" }
+object BuildConfigLite { const val VERSION = "0.2.0" }

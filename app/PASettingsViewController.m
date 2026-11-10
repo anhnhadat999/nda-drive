@@ -44,7 +44,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
-        case SecSound: return 9;
+        case SecSound: return 11;
         case SecLearn: return 4;
         case SecRun: return 2;
         case SecTest: return 2;
@@ -60,8 +60,8 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     switch (s) {
-        case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.\n\"Hiệu ứng tiếng từ phía sau\" lọc theo các dải tần mà tai người gắn với âm thanh phía sau (tăng ~1 kHz và ~11 kHz, giảm ~4 kHz), thêm tiếng ù qua thân xe và phản xạ khoang xe. Muốn tiếng phát hẳn từ loa sau, chỉnh Fader về phía sau trong cài đặt âm thanh của xe.\n\"Rung sub gầm ghế\" thêm lớp siêu trầm (dưới 90 Hz) theo nhịp nổ máy và cú \"thụp\" khi lên số. Loa sub của xe tự nhận dải này; tăng mức Bass/Sub trong cài đặt âm thanh xe nếu muốn rung mạnh hơn.";
-        case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi chỉnh tiếng pô, điểm sang số cho khớp. Học hoàn toàn trên iPhone. \"Lịch sử chuyến đi\" lưu số liệu từng chuyến để gửi phân tích, tinh chỉnh tiếng pô cho đúng xe điện của bạn.";
+        case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.\n\"Hiệu ứng tiếng từ phía sau\" lọc theo các dải tần mà tai người gắn với âm thanh phía sau (tăng ~1 kHz và ~11 kHz, giảm ~4 kHz), thêm tiếng ù qua thân xe và phản xạ khoang xe. Muốn tiếng phát hẳn từ loa sau, chỉnh Fader về phía sau trong cài đặt âm thanh của xe.\n\"Rung sub gầm ghế\" thêm lớp siêu trầm (dưới 90 Hz) theo nhịp nổ máy và cú \"thụp\" khi lên số. Loa sub của xe tự nhận dải này; tăng mức Bass/Sub trong cài đặt âm thanh xe nếu muốn rung mạnh hơn.\n\"Độ gằn\" làm thân tiếng dày và uy lực hơn, gằn sớm ngay cả khi đi nhẹ. \"Độ dòn\" làm mỗi tiếng nổ sắc, đanh và tách bạch hơn.";
+        case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi tự chỉnh độ gằn, độ dòn, điểm sang số cho khớp. Học hoàn toàn trên iPhone.\n\"Thu thập dữ liệu cho Claude\": ghi số liệu cảm biến mỗi chuyến (không có tọa độ, tên hay số điện thoại) để bạn xuất báo cáo gửi Claude, dùng cho việc cải thiện tiếng pô ở các bản sau. Bật liên tục để dữ liệu ngày càng nhiều, tiếng ngày càng đúng xe bạn.";
         case SecRun: return @"Bật mục này để xe tự nổ máy mỗi khi iPhone kết nối Apple CarPlay và tắt máy khi ngắt kết nối.";
         case SecTest: return @"Chỉ dùng khi xe đang đỗ. Kéo thanh tốc độ để nghe sang số mà không cần chạy xe.";
         case SecStatus: return @"\"Xuất báo cáo cho Claude\" đóng gói nhật ký, bộ đếm sự kiện, chất lượng cảm biến, lỗi thoát app và chuyến đi gần đây thành 1 tệp. Không chứa tọa độ, tên hay số điện thoại. Gửi tệp vào khung chat với Claude để phân tích.\nGắn iPhone cố định trên giá đỡ. Lần đầu lái, tăng tốc và phanh vài lần để máy tự học hướng xe.";
@@ -135,19 +135,23 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         case SecSound:
             if (ip.row == 0) return [self sliderCell:@"Âm lượng" value:e.volume max:1 tag:1 detail:[NSString stringWithFormat:@"%.0f%%", e.volume * 100] enabled:YES];
             if (ip.row == 1) return [self sliderCell:@"Độ đanh của pô" value:e.toneAmount max:1 tag:2 detail:toneText(e.toneAmount) enabled:YES];
-            if (ip.row == 2) return [self switchCell:@"Nổ lụp bụp khi nhả ga" icon:@"flame.fill" on:e.popsEnabled tag:10];
-            if (ip.row == 3) return [self switchCell:@"Tiếng \"bụp\" khi lên số" icon:@"arrow.up.circle.fill" on:e.shiftPopEnabled tag:11];
-            if (ip.row == 4) return [self switchCell:@"Tự tăng âm lượng theo tốc độ" icon:@"speaker.wave.3.fill" on:e.autoVolume tag:16];
-            if (ip.row == 5) return [self switchCell:@"Hiệu ứng tiếng từ phía sau" icon:@"speaker.wave.2.fill" on:e.rearEffect tag:17];
-            if (ip.row == 8) return [self sliderCell:@"Rung sub gầm ghế" value:e.subAmount max:1 tag:5 detail:[NSString stringWithFormat:@"%.0f%%", e.subAmount * 100] enabled:YES];
-            if (ip.row == 7) return [self infoCell:@"Đo âm học khoang xe" detail:(e.acousticCorrection ? @"bù: bật" : nil) icon:@"waveform.and.mic" tappable:YES];
-            return [self sliderCell:@"Cường độ cảm giác phía sau" value:e.rearAmount max:1 tag:4 detail:[NSString stringWithFormat:@"%.0f%%", e.rearAmount * 100] enabled:e.rearEffect];
+            if (ip.row == 2) return [self sliderCell:@"Độ gằn (uy lực)" value:e.growl max:1 tag:6 detail:[NSString stringWithFormat:@"%.0f%%", e.growl * 100] enabled:YES];
+            if (ip.row == 3) return [self sliderCell:@"Độ dòn (tiếng nổ)" value:e.crispness max:1 tag:7 detail:[NSString stringWithFormat:@"%.0f%%", e.crispness * 100] enabled:YES];
+            if (ip.row == 4) return [self switchCell:@"Nổ lụp bụp khi nhả ga" icon:@"flame.fill" on:e.popsEnabled tag:10];
+            if (ip.row == 5) return [self switchCell:@"Tiếng \"bụp\" khi lên số" icon:@"arrow.up.circle.fill" on:e.shiftPopEnabled tag:11];
+            if (ip.row == 6) return [self switchCell:@"Tự tăng âm lượng theo tốc độ" icon:@"speaker.wave.3.fill" on:e.autoVolume tag:16];
+            if (ip.row == 7) return [self switchCell:@"Hiệu ứng tiếng từ phía sau" icon:@"speaker.wave.2.fill" on:e.rearEffect tag:17];
+            if (ip.row == 8) return [self sliderCell:@"Cường độ cảm giác phía sau" value:e.rearAmount max:1 tag:4 detail:[NSString stringWithFormat:@"%.0f%%", e.rearAmount * 100] enabled:e.rearEffect];
+            if (ip.row == 9) return [self infoCell:@"Đo âm học khoang xe" detail:(e.acousticCorrection ? @"bù: bật" : nil) icon:@"waveform.and.mic" tappable:YES];
+            return [self sliderCell:@"Rung sub gầm ghế" value:e.subAmount max:1 tag:5 detail:[NSString stringWithFormat:@"%.0f%%", e.subAmount * 100] enabled:YES];
         case SecLearn: {
             if (ip.row == 0) return [self switchCell:@"Tự học theo xe và cách lái" icon:@"brain" on:e.learnEnabled tag:18];
-            if (ip.row == 2) return [self switchCell:@"Ghi lịch sử chuyến đi" icon:@"record.circle" on:e.recordEnabled tag:19];
+            if (ip.row == 2) return [self switchCell:@"Thu thập dữ liệu cho Claude" icon:@"record.circle" on:e.recordEnabled tag:19];
             if (ip.row == 3) return [self infoCell:@"Lịch sử chuyến đi" detail:nil icon:@"list.bullet.rectangle" tappable:YES];
             PALearn l = ((PAMotion *)e.motion).learned;
-            return [self infoCell:@"Hồ sơ xe đã học" detail:[NSString stringWithFormat:@"%.0f%% · 0–100 ~%.1f s", pal_confidence(&l) * 100, pal_zero_to_100(&l)] icon:@"chart.line.uptrend.xyaxis" tappable:YES];
+            double sp = pal_sport(&l);
+            NSString *style = sp < 0.33 ? @"êm" : (sp < 0.66 ? @"vừa" : @"thể thao");
+            return [self infoCell:@"Hồ sơ xe đã học" detail:[NSString stringWithFormat:@"%.0f km · lái %@ · 0–100 ~%.1f s · %.0f%%", l.distKm, style, pal_zero_to_100(&l), pal_confidence(&l) * 100] icon:@"chart.line.uptrend.xyaxis" tappable:YES];
         }
         case SecRun:
             if (ip.row == 0) return [self switchCell:@"Bật pô ảo" icon:@"power" on:e.enabled tag:12];
@@ -184,7 +188,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     if (ip.section == SecStatus && ip.row == 0) {
         [PAEngine.shared requestLocationPermission];
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
-    } else if (ip.section == SecSound && ip.row == 7) {
+    } else if (ip.section == SecSound && ip.row == 9) {
         [self.navigationController pushViewController:[PAAcousticViewController new] animated:YES];
     } else if (ip.section == SecLearn && ip.row == 3) {
         [self.navigationController pushViewController:[PATripsViewController new] animated:YES];
@@ -237,7 +241,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         case 16: e.autoVolume = s.on; break;
         case 17:
             e.rearEffect = s.on;
-            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:6 inSection:SecSound]] withRowAnimation:UITableViewRowAnimationNone];
+            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:8 inSection:SecSound]] withRowAnimation:UITableViewRowAnimationNone];
             break;
         case 18: e.learnEnabled = s.on; break;
         case 19: e.recordEnabled = s.on; break;
@@ -254,6 +258,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     if (s.tag == 1) { e.volume = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 2) { e.toneAmount = s.value; d.text = toneText(s.value); }
     else if (s.tag == 5) { e.subAmount = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
+    else if (s.tag == 6) { e.growl = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
+    else if (s.tag == 7) { e.crispness = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 4) { e.rearAmount = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 3) { e.testSpeedKmh = round(s.value); d.text = [NSString stringWithFormat:@"%.0f km/h", round(s.value)]; }
 }

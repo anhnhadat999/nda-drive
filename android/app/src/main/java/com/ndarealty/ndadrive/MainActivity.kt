@@ -74,6 +74,8 @@ class MainActivity : Activity() {
         val c3 = card(root)
         slider(c3, "Âm lượng", prefs.volume, 1f, { "%.0f%%".format(it * 100) }) { prefs.volume = it; prefs.apply() }
         slider(c3, "Độ đanh của pô", prefs.tone, 1f, { if (it < 0.34) "Êm" else if (it < 0.67) "Vừa" else "Đanh" }) { prefs.tone = it; prefs.apply() }
+        slider(c3, "Độ gằn (uy lực)", prefs.growl, 1f, { "%.0f%%".format(it * 100) }) { prefs.growl = it; prefs.apply() }
+        slider(c3, "Độ dòn (tiếng nổ)", prefs.crisp, 1f, { "%.0f%%".format(it * 100) }) { prefs.crisp = it; prefs.apply() }
         slider(c3, "Cảm giác vọng phía sau", prefs.rearAmt, 1f, { "%.0f%%".format(it * 100) }) { prefs.rearAmt = it; prefs.apply() }
         slider(c3, "Lớp siêu trầm (rung)", prefs.subAmt, 1f, { "%.0f%%".format(it * 100) }) { prefs.subAmt = it; prefs.apply() }
         slider(c3, "Bù trễ loa Bluetooth", prefs.leadMs / 400f, 1f, { "%.0f ms".format(it * 400) }) { prefs.leadMs = (it * 400).toInt(); prefs.apply() }
