@@ -7,10 +7,10 @@
 #import "PATheme.h"
 
 // Dong ho toc do + vong tua ve bang CoreGraphics
-@interface PAGaugeView : UIView
+@interface PADashGauge : UIView
 @property (nonatomic) double speed, rpm, redline, load; @property (nonatomic) int gear; @property (nonatomic) BOOL running;
 @end
-@implementation PAGaugeView
+@implementation PADashGauge
 - (void)drawRect:(CGRect)r {
     CGContextRef c = UIGraphicsGetCurrentContext();
     CGFloat W = self.bounds.size.width, H = self.bounds.size.height, cx = W/2, cy = H*0.56, rad = fmin(W,H)*0.42;
@@ -46,10 +46,10 @@
 }
 @end
 
-@interface PARingView : UIView
+@interface PADashRing : UIView
 @property (nonatomic) double frac; @property (nonatomic, copy) NSString *big, *small;
 @end
-@implementation PARingView
+@implementation PADashRing
 - (void)drawRect:(CGRect)r {
     CGContextRef c = UIGraphicsGetCurrentContext();
     CGFloat W=self.bounds.size.width,H=self.bounds.size.height,cx=W/2,cy=H/2,rad=fmin(W,H)/2-8;
@@ -65,7 +65,7 @@
 @end
 
 @implementation PADashboardViewController {
-    PAGaugeView *_gauge; PARingView *_ring; UIView *_loadBar, *_loadFill; UILabel *_verdict; UIStackView *_assess;
+    PADashGauge *_gauge; PADashRing *_ring; UIView *_loadBar, *_loadFill; UILabel *_verdict; UIStackView *_assess;
     UISwitch *_collectSw; UILabel *_collectLbl; NSTimer *_t;
 }
 
@@ -82,7 +82,7 @@
       [st.topAnchor constraintEqualToAnchor:sc.contentLayoutGuide.topAnchor constant:12],[st.bottomAnchor constraintEqualToAnchor:sc.contentLayoutGuide.bottomAnchor constant:-24],
       [st.leadingAnchor constraintEqualToAnchor:sc.frameLayoutGuide.leadingAnchor constant:16],[st.trailingAnchor constraintEqualToAnchor:sc.frameLayoutGuide.trailingAnchor constant:-16]]];
 
-    _gauge=[PAGaugeView new]; _gauge.backgroundColor=UIColor.clearColor; [_gauge.heightAnchor constraintEqualToConstant:240].active=YES; [st addArrangedSubview:_gauge];
+    _gauge=[PADashGauge new]; _gauge.backgroundColor=UIColor.clearColor; [_gauge.heightAnchor constraintEqualToConstant:240].active=YES; [st addArrangedSubview:_gauge];
 
     // thanh ga
     UILabel *lcap=[self cap:@"ĐỘ ĐẠP GA"]; [st addArrangedSubview:lcap];
@@ -94,7 +94,7 @@
     UIView *cc=[self card]; UIStackView *crow=[[UIStackView alloc] init]; crow.spacing=14; crow.alignment=UIStackViewAlignmentCenter;
     crow.translatesAutoresizingMaskIntoConstraints=NO; [cc addSubview:crow];
     [NSLayoutConstraint activateConstraints:@[[crow.topAnchor constraintEqualToAnchor:cc.topAnchor constant:14],[crow.bottomAnchor constraintEqualToAnchor:cc.bottomAnchor constant:-14],[crow.leadingAnchor constraintEqualToAnchor:cc.leadingAnchor constant:16],[crow.trailingAnchor constraintEqualToAnchor:cc.trailingAnchor constant:-16]]];
-    _ring=[PARingView new]; _ring.backgroundColor=UIColor.clearColor; [_ring.widthAnchor constraintEqualToConstant:84].active=YES; [_ring.heightAnchor constraintEqualToConstant:84].active=YES; [crow addArrangedSubview:_ring];
+    _ring=[PADashRing new]; _ring.backgroundColor=UIColor.clearColor; [_ring.widthAnchor constraintEqualToConstant:84].active=YES; [_ring.heightAnchor constraintEqualToConstant:84].active=YES; [crow addArrangedSubview:_ring];
     _collectLbl=[UILabel new]; _collectLbl.numberOfLines=0; _collectLbl.font=PAMono(14,UIFontWeightMedium); _collectLbl.textColor=PA_FG; [crow addArrangedSubview:_collectLbl];
     [st addArrangedSubview:cc];
 
