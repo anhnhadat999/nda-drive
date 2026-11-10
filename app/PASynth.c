@@ -95,6 +95,9 @@ void pa_init(PASynth *s) {
     s->growl = 0.5;
     s->crisp = 0.5;
     s->perfCap = 0;
+    s->perfKnee = 50;
+    s->interior = 0.35;
+    s->mech = 0.3;
 }
 
 static double learned_cap(PASynth *s, double v) {
@@ -145,7 +148,8 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     // Xe that manh (vd xe dien 350 ma luc): dat san do boc thuc te theo toc do (manh khi cham, yeu dan khi nhanh).
     // Nho vay lai nhe chi an mot phan ga -> tieng thu gian, chi khi dap sau moi gan het tai -> tieng gam that su.
     if (s->perfCap > 0.5) {
-        double floorA = s->perfCap * (s->speed < 50 ? 1.0 : sqrt(50.0 / s->speed));   // tren 50 km/h: gioi han theo cong suat
+        double kn = s->perfKnee > 10 ? s->perfKnee : 50;
+        double floorA = s->perfCap * (s->speed < kn ? 1.0 : kn / s->speed);   // tren nguong: gioi han cong suat (~1/v)
         if (floorA > aMax) aMax = floorA;
     }
     double load;
@@ -305,6 +309,17 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
             double hp = nz - s->crackHp; s->crackHp += 0.6 * (nz - s->crackHp);
             o += hp * s->crackEnv * 0.5;
         }
+        // Lop tieng co khi (van, xich cam, puly): tieng "lach cach" tan cao theo nhip no, manh dan theo vong tua.
+        // Nghe ro khi ngoi TRONG xe -> tang tinh chan thuc "xe xang".
+        if (s->mech > 0.01) {
+            double mf = f * 2;                              // tan so co khi ~ gap doi tan so no
+            s->mechPh += mf / sr;
+            if (s->mechPh >= 1) { s->mechPh -= 1; s->mechEnv = 0.4 + 0.6 * frand(s); }
+            s->mechEnv *= exp(-1 / (sr * 0.004));
+            double mn = nz - s->mechLp; s->mechLp += 0.45 * (nz - s->mechLp);   // thong cao
+            double mg = s->mech * (0.015 + 0.05 * rpmN) * (0.5 + 0.5 * loadV);
+            o += mn * s->mechEnv * mg;
+        }
 
         if (s->popEnv > 0.001) {
             s->popEnv *= exp(-1 / (sr * 0.028));
@@ -372,6 +387,17 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
                 x = y;
             }
             o = x;
+        }
+        if (s->interior > 0.01) {
+            // Ngoi TRONG xe: tieng den tai qua than xe -> bot the cao (muffle) + u tram khoang xe ~125 Hz
+            double inCut = 1 - exp(-TWO_PI * (5500 - 2800 * s->interior) / sr);
+            double inF = 2 * sin(M_PI * 125 / sr), inQ = 0.45;
+            s->inLp += inCut * (o - s->inLp);
+            s->inBoomL += inF * s->inBoomB;
+            double bh = o - s->inBoomL - inQ * s->inBoomB;
+            s->inBoomB += inF * bh;
+            double cabin = s->inLp + s->inBoomB * 0.6;
+            o = o * (1 - 0.8 * s->interior) + cabin * 0.8 * s->interior;
         }
         o *= s->master;
         out[i] = (float)tanh(o * 1.2); // gioi han an toan

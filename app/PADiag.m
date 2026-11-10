@@ -149,7 +149,8 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         @"settings": @{ @"enabled": @(e.enabled), @"auto_carplay": @(e.onlyWithCarPlay), @"preset": e.presetKey ?: @"",
                         @"volume": @(e.volume), @"tone": @(e.toneAmount), @"pops": @(e.popsEnabled), @"shift_pop": @(e.shiftPopEnabled),
                         @"auto_volume": @(e.autoVolume), @"rear_fx": @(e.rearEffect), @"rear_amount": @(e.rearAmount),
-                        @"growl": @(e.growl), @"crisp": @(e.crispness), @"sub": @(e.subAmount), @"latency_comp": @(e.latencyComp), @"car_0_100_s": @(e.car0to100),
+                        @"growl": @(e.growl), @"crisp": @(e.crispness), @"sub": @(e.subAmount), @"latency_comp": @(e.latencyComp),
+                        @"car_0_100_s": @(e.car0to100), @"car_hp": @(e.carHP), @"car_weight_kg": @(e.carWeight), @"perf_knee_kmh": @(e.perfKneeKmh), @"interior": @(e.interior), @"mech": @(e.mechanical),
                         @"learn": @(e.learnEnabled), @"record": @(e.recordEnabled), @"speed_trim": @(e.speedTrim), @"response": @(e.responseMode), @"test_mode": @(e.testMode) },
         @"permissions": @{ @"location": e.locationStatusText ?: @"" },
         @"state_now": @{ @"engine_on": @(e.engineOn), @"carplay": @(e.carPlayConnected), @"sensor_source": m.sourceName ?: @"", @"imu_hz": @(m.imuHz), @"gps_hz": @(m.gpsHz),
@@ -180,6 +181,7 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         rep[@"stats_session"] = st;
         rep[@"packages"] = [self installedPackages];
         rep[@"storage_dir"] = PADataDir().path ?: @"";
+        rep[@"gop_y_chan_thuc"] = [NSUserDefaults.standardUserDefaults arrayForKey:@"realismFeedback"] ?: @[];
 
         NSFileManager *fm = NSFileManager.defaultManager;
         NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyyMMdd_HHmmss";

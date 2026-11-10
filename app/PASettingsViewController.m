@@ -11,7 +11,7 @@
 #import "PAAcousticViewController.h"
 #import "PASyncViewController.h"
 
-typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
+typedef NS_ENUM(NSInteger, PASec) { SecCar, SecSound, SecLearn, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
 
 @implementation PASettingsViewController
 { float _sliderMin; }
@@ -45,8 +45,9 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
-        case SecSound: return 11;
-        case SecLearn: return 5;
+        case SecCar: return 5;
+        case SecSound: return 13;
+        case SecLearn: return 4;
         case SecRun: return 2;
         case SecTest: return 2;
         case SecStatus: return 4;
@@ -56,11 +57,12 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s {
-    return @[@"Âm thanh", @"Học thích nghi", @"Hoạt động", @"Thử khi đỗ xe", @"Quyền & cảm biến", @"Cập nhật"][s];
+    return @[@"Thông số xe thật", @"Âm thanh", @"Học thích nghi", @"Hoạt động", @"Thử khi đỗ xe", @"Quyền & cảm biến", @"Cập nhật"][s];
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     switch (s) {
+        case SecCar: return @"Nhập đúng thông số xe của bạn để app mô phỏng chân thực nhất. \"Mã lực\" và \"0–100 km/h\" lấy theo công bố của hãng; \"Trọng lượng\" ước chừng cũng được. App dùng để tính độ bốc theo tốc độ: đi nhẹ thì tiếng thư giãn, đạp sâu mới gầm hết công suất — như xe xăng thật.";
         case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.\n\"Hiệu ứng tiếng từ phía sau\" lọc theo các dải tần mà tai người gắn với âm thanh phía sau (tăng ~1 kHz và ~11 kHz, giảm ~4 kHz), thêm tiếng ù qua thân xe và phản xạ khoang xe. Muốn tiếng phát hẳn từ loa sau, chỉnh Fader về phía sau trong cài đặt âm thanh của xe.\n\"Rung sub gầm ghế\" thêm lớp siêu trầm (dưới 90 Hz) theo nhịp nổ máy và cú \"thụp\" khi lên số. Loa sub của xe tự nhận dải này; tăng mức Bass/Sub trong cài đặt âm thanh xe nếu muốn rung mạnh hơn.\n\"Độ gằn\" làm thân tiếng dày và uy lực hơn, gằn sớm ngay cả khi đi nhẹ. \"Độ dòn\" làm mỗi tiếng nổ sắc, đanh và tách bạch hơn.";
         case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi tự chỉnh độ gằn, độ dòn, điểm sang số cho khớp. Học hoàn toàn trên iPhone.\n\"Thu thập dữ liệu cho Claude\": ghi số liệu cảm biến mỗi chuyến (không có tọa độ, tên hay số điện thoại) để bạn xuất báo cáo gửi Claude, dùng cho việc cải thiện tiếng pô ở các bản sau. Bật liên tục để dữ liệu ngày càng nhiều, tiếng ngày càng đúng xe bạn.\n\"Xe bứt tốc 0–100\": cho app biết xe mạnh cỡ nào. Xe điện mạnh (vd 350 mã lực, ~6 s) thì đi nhẹ tiếng thư giãn, chỉ khi đạp sâu mới gầm hết cỡ — giống xe thật.";
         case SecRun: return @"Bật mục này để xe tự nổ máy mỗi khi iPhone kết nối Apple CarPlay và tắt máy khi ngắt kết nối.";
@@ -134,6 +136,12 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     PAEngine *e = PAEngine.shared;
     PAUpdater *u = PAUpdater.shared;
     switch (ip.section) {
+        case SecCar:
+            if (ip.row == 0) { _sliderMin = 50;  return [self sliderCell:@"Mã lực (HP)" value:e.carHP max:800 tag:20 detail:[NSString stringWithFormat:@"%.0f HP", e.carHP] enabled:YES]; }
+            if (ip.row == 1) { _sliderMin = 3;   return [self sliderCell:@"Tăng tốc 0–100 km/h" value:e.car0to100 max:12 tag:8 detail:[NSString stringWithFormat:@"%.1f s", e.car0to100] enabled:YES]; }
+            if (ip.row == 2) { _sliderMin = 800; return [self sliderCell:@"Trọng lượng (kg)" value:e.carWeight max:3000 tag:21 detail:[NSString stringWithFormat:@"%.0f kg", e.carWeight] enabled:YES]; }
+            if (ip.row == 3) return [self infoCell:@"Độ bốc tính được" detail:[NSString stringWithFormat:@"đỉnh %.1f m/s² · ghìm công suất từ %.0f km/h", e.car0to100 > 1 ? 27.78 / e.car0to100 * 1.4 : 0, e.perfKneeKmh] icon:@"gauge.high" tappable:NO];
+            return [self infoCell:@"Góp ý độ chân thực" detail:@"giúp cải thiện" icon:@"hand.thumbsup" tappable:YES];
         case SecSound:
             if (ip.row == 0) return [self sliderCell:@"Âm lượng" value:e.volume max:1 tag:1 detail:[NSString stringWithFormat:@"%.0f%%", e.volume * 100] enabled:YES];
             if (ip.row == 1) return [self sliderCell:@"Độ đanh của pô" value:e.toneAmount max:1 tag:2 detail:toneText(e.toneAmount) enabled:YES];
@@ -145,10 +153,11 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 7) return [self switchCell:@"Hiệu ứng tiếng từ phía sau" icon:@"speaker.wave.2.fill" on:e.rearEffect tag:17];
             if (ip.row == 8) return [self sliderCell:@"Cường độ cảm giác phía sau" value:e.rearAmount max:1 tag:4 detail:[NSString stringWithFormat:@"%.0f%%", e.rearAmount * 100] enabled:e.rearEffect];
             if (ip.row == 9) return [self infoCell:@"Đo âm học khoang xe" detail:(e.acousticCorrection ? @"bù: bật" : nil) icon:@"waveform.and.mic" tappable:YES];
+            if (ip.row == 11) return [self sliderCell:@"Giống ngồi trong xe" value:e.interior max:1 tag:22 detail:[NSString stringWithFormat:@"%.0f%%", e.interior * 100] enabled:YES];
+            if (ip.row == 12) return [self sliderCell:@"Tiếng cơ khí (máy)" value:e.mechanical max:1 tag:23 detail:[NSString stringWithFormat:@"%.0f%%", e.mechanical * 100] enabled:YES];
             return [self sliderCell:@"Rung sub gầm ghế" value:e.subAmount max:1 tag:5 detail:[NSString stringWithFormat:@"%.0f%%", e.subAmount * 100] enabled:YES];
         case SecLearn: {
             if (ip.row == 0) return [self switchCell:@"Tự học theo xe và cách lái" icon:@"brain" on:e.learnEnabled tag:18];
-            if (ip.row == 1) { _sliderMin = 3; return [self sliderCell:@"Xe bứt tốc 0–100 km/h" value:e.car0to100 max:12 tag:8 detail:[NSString stringWithFormat:@"%.1f s", e.car0to100] enabled:YES]; }
             if (ip.row == 2) return [self switchCell:@"Thu thập dữ liệu cho Claude" icon:@"record.circle" on:e.recordEnabled tag:19];
             if (ip.row == 3) return [self infoCell:@"Lịch sử chuyến đi" detail:nil icon:@"list.bullet.rectangle" tappable:YES];
             PALearn l = ((PAMotion *)e.motion).learned;
@@ -184,6 +193,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
+    if (ip.section == SecCar && ip.row == 4) { [self askRealism]; return; }
     if (ip.section == SecStatus && ip.row == 3) {
         [self.navigationController pushViewController:[PASyncViewController new] animated:YES];
         return;
@@ -264,8 +274,36 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     else if (s.tag == 6) { e.growl = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 7) { e.crispness = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 8) { e.car0to100 = round(s.value * 2) / 2.0; d.text = [NSString stringWithFormat:@"%.1f s", e.car0to100]; }
+    else if (s.tag == 20) { e.carHP = round(s.value); d.text = [NSString stringWithFormat:@"%.0f HP", e.carHP]; }
+    else if (s.tag == 21) { e.carWeight = round(s.value / 10) * 10; d.text = [NSString stringWithFormat:@"%.0f kg", e.carWeight]; }
+    else if (s.tag == 22) { e.interior = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
+    else if (s.tag == 23) { e.mechanical = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 4) { e.rearAmount = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 3) { e.testSpeedKmh = round(s.value); d.text = [NSString stringWithFormat:@"%.0f km/h", round(s.value)]; }
+}
+
+
+- (void)askRealism {
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Tiếng pô vừa rồi thế nào?"
+        message:@"Góp ý được lưu vào báo cáo (không kèm tọa độ) để Claude chỉnh cho đúng xe bạn." preferredStyle:UIAlertControllerStyleActionSheet];
+    NSArray *opts = @[@"Rất giống xe thật", @"Khá giống", @"Chưa giống lắm", @"Tiếng quá yếu/nhỏ", @"Tiếng quá gào/ồn", @"Lệch chân ga (trễ)"];
+    for (NSString *o in opts) {
+        [a addAction:[UIAlertAction actionWithTitle:o style:UIAlertActionStyleDefault handler:^(UIAlertAction *x) {
+            NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
+            NSMutableArray *arr = [([d arrayForKey:@"realismFeedback"] ?: @[]) mutableCopy];
+            NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyy-MM-dd HH:mm";
+            [arr addObject:@{ @"luc": [df stringFromDate:[NSDate date]], @"y_kien": o,
+                @"preset": PAEngine.shared.presetKey ?: @"", @"growl": @(PAEngine.shared.growl), @"crisp": @(PAEngine.shared.crispness),
+                @"interior": @(PAEngine.shared.interior), @"0_100": @(PAEngine.shared.car0to100) }];
+            while (arr.count > 40) [arr removeObjectAtIndex:0];
+            [d setObject:arr forKey:@"realismFeedback"];
+            [PADiag.shared bump:@"gop_y_chan_thuc"];
+        }]];
+    }
+    [a addAction:[UIAlertAction actionWithTitle:@"Huỷ" style:UIAlertActionStyleCancel handler:nil]];
+    a.popoverPresentationController.sourceView = self.view;
+    a.popoverPresentationController.sourceRect = CGRectMake(self.view.bounds.size.width/2, self.view.bounds.size.height/2, 1, 1);
+    [self presentViewController:a animated:YES completion:nil];
 }
 
 @end

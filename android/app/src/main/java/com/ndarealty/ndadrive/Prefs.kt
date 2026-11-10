@@ -12,7 +12,11 @@ class Prefs(ctx: Context) {
     var subAmt: Float get() = p.getFloat("sub", 0.6f); set(v) = p.edit().putFloat("sub", v).apply()
     var growl: Float get() = p.getFloat("growl", 0.6f); set(v) = p.edit().putFloat("growl", v).apply()
     var crisp: Float get() = p.getFloat("crisp", 0.6f); set(v) = p.edit().putFloat("crisp", v).apply()
-    var zeroTo100: Float get() = p.getFloat("car0to100", 6.0f); set(v) = p.edit().putFloat("car0to100", v).apply()
+    var zeroTo100: Float get() = p.getFloat("car0to100", 5.8f); set(v) = p.edit().putFloat("car0to100", v).apply()
+    var carHP: Float get() = p.getFloat("hp", 349f); set(v) = p.edit().putFloat("hp", v).apply()
+    var carWeight: Float get() = p.getFloat("wt", 1900f); set(v) = p.edit().putFloat("wt", v).apply()
+    var interior: Float get() = p.getFloat("interior", 0.4f); set(v) = p.edit().putFloat("interior", v).apply()
+    var mech: Float get() = p.getFloat("mech", 0.3f); set(v) = p.edit().putFloat("mech", v).apply()
     var leadMs: Int get() = p.getInt("lead", 200); set(v) = p.edit().putInt("lead", v).apply()
     var pops: Boolean get() = p.getBoolean("pops", true); set(v) = p.edit().putBoolean("pops", v).apply()
     var shiftPop: Boolean get() = p.getBoolean("shiftPop", true); set(v) = p.edit().putBoolean("shiftPop", v).apply()
@@ -34,6 +38,11 @@ class Prefs(ctx: Context) {
     fun bump(key: String) { p.edit().putInt("cnt.$key", counter(key) + 1).apply() }
     fun counters(): Map<String, Int> = p.all.filterKeys { it.startsWith("cnt.") }.mapKeys { it.key.removePrefix("cnt.") }.mapValues { (it.value as? Int) ?: 0 }
 
+    fun perfCap(): Double = if (zeroTo100 > 1) 27.78 / zeroTo100 * 1.4 else 0.0
+    fun perfKnee(): Double {
+        val cap = perfCap(); if (cap < 0.5 || carHP < 10 || carWeight < 100) return 50.0
+        return (carHP * 746.0 * 0.85 / (carWeight * cap) * 3.6).coerceIn(25.0, 160.0)
+    }
     fun presetIndex(): Int {
         Core.ensureInit()
         for (i in 0 until Core.presetCount()) if (Core.presetKey(i) == preset) return i
@@ -43,7 +52,7 @@ class Prefs(ctx: Context) {
         Core.ensureInit()
         Core.setParams(presetIndex(), volume.toDouble(), tone.toDouble(), pops, shiftPop, autoVol, rearAmt > 0.01f,
             rearAmt.toDouble(), subAmt.toDouble(), growl.toDouble(), crisp.toDouble(),
-            if (zeroTo100 > 1) 27.78 / zeroTo100 * 1.4 else 0.0, learn, trim.toDouble(), 1.0)
+            perfCap(), perfKnee(), interior.toDouble(), mech.toDouble(), learn, trim.toDouble(), 1.0)
         Core.setLead(leadMs / 1000.0)
     }
 }

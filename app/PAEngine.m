@@ -44,7 +44,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
         [d registerDefaults:@{ @"enabled": @YES, @"onlyWithCarPlay": @YES, @"preset": @"gt3",
                                @"volume": @0.7, @"tone": @0.5, @"pops": @YES, @"shiftPop": @YES,
-                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7, @"subAmt": @0.6, @"growl": @0.6, @"crisp": @0.6, @"car0to100": @6.0, @"acousticCorr": @YES, @"latComp": @YES }];
+                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7, @"subAmt": @0.6, @"growl": @0.6, @"crisp": @0.6, @"car0to100": @5.8, @"carHP": @349.0, @"carWeight": @1900.0, @"interior": @0.4, @"mech": @0.3, @"acousticCorr": @YES, @"latComp": @YES }];
         _enabled = [d boolForKey:@"enabled"];
         _onlyWithCarPlay = [d boolForKey:@"onlyWithCarPlay"];
         _presetKey = [d stringForKey:@"preset"] ?: @"gt3";
@@ -63,6 +63,10 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _growl = [d doubleForKey:@"growl"];
         _crispness = [d doubleForKey:@"crisp"];
         _car0to100 = [d doubleForKey:@"car0to100"];
+        _carHP = [d doubleForKey:@"carHP"];
+        _carWeight = [d doubleForKey:@"carWeight"];
+        _interior = [d doubleForKey:@"interior"];
+        _mechanical = [d doubleForKey:@"mech"];
         _latencyComp = [d boolForKey:@"latComp"];
         _acousticCorrection = [d boolForKey:@"acousticCorr"];
         [self applySettings];
@@ -88,8 +92,17 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     _synth.subAmt = _subAmount;
     _synth.growl = _growl;
     _synth.crisp = _crispness;
-    // 0-100 trong T giay: do boc trung binh 27.78/T, dinh luc xuat phat ~1.4 lan
-    _synth.perfCap = _car0to100 > 1 ? 27.78 / _car0to100 * 1.4 : 0;
+    // Tu thong so xe that tinh ra do boc va nguong gioi han cong suat:
+    // perfCap = gia toc dinh toc do thap (tu 0-100); perfKnee = toc do bat dau gioi han boi cong suat (tu ma luc/khoi luong)
+    double cap = _car0to100 > 1 ? 27.78 / _car0to100 * 1.4 : 0;
+    _synth.perfCap = cap;
+    if (cap > 0.5 && _carHP > 10 && _carWeight > 100) {
+        double pW = _carHP * 746.0 * 0.85;                 // cong suat thuc (W), hieu suat ~85%
+        double knee = pW / (_carWeight * cap) * 3.6;       // km/h
+        _synth.perfKnee = fmax(25, fmin(160, knee));
+    } else _synth.perfKnee = 50;
+    _synth.interior = _interior;
+    _synth.mech = _mechanical;
     PAAcousticResult ar;
     BOOL hasAr = [PAAcousticMeasure loadSaved:&ar];
     if (hasAr) { for (int k = 0; k < 9; k++) _synth.corrDb[k] = ar.corrDb[k]; _synth.corrVer++; }
@@ -136,6 +149,11 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
 - (void)setGrowl:(double)v { _growl = v; [self save:@(v) key:@"growl"]; [self applySettings]; }
 - (void)setCrispness:(double)v { _crispness = v; [self save:@(v) key:@"crisp"]; [self applySettings]; }
 - (void)setCar0to100:(double)v { _car0to100 = v; [self save:@(v) key:@"car0to100"]; [self applySettings]; }
+- (void)setCarHP:(double)v { _carHP = v; [self save:@(v) key:@"carHP"]; [self applySettings]; }
+- (void)setCarWeight:(double)v { _carWeight = v; [self save:@(v) key:@"carWeight"]; [self applySettings]; }
+- (void)setInterior:(double)v { _interior = v; [self save:@(v) key:@"interior"]; [self applySettings]; }
+- (void)setMechanical:(double)v { _mechanical = v; [self save:@(v) key:@"mech"]; [self applySettings]; }
+- (double)perfKneeKmh { return _synth.perfKnee; }
 - (void)setRearAmount:(double)v { _rearAmount = v; [self save:@(v) key:@"rearAmt"]; [self applySettings]; }
 - (void)setRecordEnabled:(BOOL)v { _recordEnabled = v; [self save:@(v) key:@"record"]; [self applySettings]; if (!v) [_motion stopTrip]; }
 - (void)setLearnEnabled:(BOOL)v { _learnEnabled = v; [self save:@(v) key:@"learn"]; [self applySettings]; }

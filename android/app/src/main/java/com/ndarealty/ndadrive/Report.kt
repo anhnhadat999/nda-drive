@@ -30,6 +30,8 @@ object Report {
             put("settings", JSONObject().apply {
                 put("preset", p.preset); put("volume", p.volume); put("tone", p.tone); put("rear", p.rearAmt); put("sub", p.subAmt)
                 put("lead_ms", p.leadMs); put("auto_run", p.autoRun); put("need_speaker", p.needSpeaker); put("learn", p.learn); put("record", p.record)
+                put("car_hp", p.carHP); put("car_0_100_s", p.zeroTo100); put("car_weight_kg", p.carWeight)
+                put("interior", p.interior); put("mech", p.mech); put("perf_knee_kmh", p.perfKnee())
             })
             put("state_now", JSONObject().apply {
                 put("active", svc?.active ?: false); put("powered", svc?.powered ?: false); put("speaker", svc?.speakerName ?: "")

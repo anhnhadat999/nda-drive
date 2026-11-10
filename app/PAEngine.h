@@ -34,7 +34,12 @@ extern NSString *const PAEngineDidUpdateNotification;
 @property (nonatomic) double subAmount;           // muc rung sub gam ghe 0..1
 @property (nonatomic) double growl;               // do gan / uy luc 0..1
 @property (nonatomic) double crispness;           // do don 0..1
-@property (nonatomic) double car0to100;           // thoi gian 0-100 km/h cua xe that (giay), dat do boc
+@property (nonatomic) double car0to100;           // thoi gian 0-100 km/h cua xe that (giay)
+@property (nonatomic) double carHP;               // ma luc xe that
+@property (nonatomic) double carWeight;           // trong luong xe (kg)
+@property (nonatomic) double interior;            // 0..1 giong ngoi trong xe
+@property (nonatomic) double mechanical;          // 0..1 tieng co khi
+@property (nonatomic, readonly) double perfKneeKmh; // nguong gioi han cong suat (hien thi)
 @property (nonatomic) BOOL acousticCorrection;   // ap dung bu khoang xe tu ket qua do
 - (void)pauseForMeasurement;
 - (void)resumeAfterMeasurement;

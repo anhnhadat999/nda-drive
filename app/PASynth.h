@@ -42,6 +42,9 @@ typedef struct {
     volatile double growl;        // do gan / uy luc: than tieng tram day hon, gan som hon 0..1 (0.5 chuan)
     volatile double crisp;        // do don: tieng no sac net, co rasp/crack 0..1 (0.5 chuan)
     volatile double perfCap;      // do boc dinh toc do thap cua xe that (m/s^2); 0 = dung mo hinh preset
+    volatile double perfKnee;     // km/h: tren nguong nay xe gioi han boi cong suat -> do boc giam ~1/v
+    volatile double interior;     // 0..1 giong ngoi TRONG xe: loc bot the cao, u tram khoang xe
+    volatile double mech;         // 0..1 tieng co khi (van, xich cam) tang theo vong tua
     volatile int corrOn;          // bu dap ung khoang xe (tu ket qua do am hoc)
     volatile double corrDb[9];    // 63 Hz .. 16 kHz
     volatile int corrVer;         // tang len moi khi doi corrDb
@@ -66,6 +69,8 @@ typedef struct {
     double stateT, accel, cut, master, shiftT, blip, overT;
     double subPh, subLp, thumpEnv, thumpPh; int thumpReq;
     double crackEnv, crackHp, crackLast;   // transient "tach" sac net moi lan no (do don)
+    double mechPh, mechLp, mechEnv;        // lop tieng co khi
+    double inLp, inBoomL, inBoomB;          // loc khoang xe (ngoi trong xe): thong thap + cong huong u tram
     double ph, phHalf, env, rpmA, loadA, lpY, lpPop, popEnv, popAmp;
     double whPh, bov, bovLp, noiseLp;
     double svfLow[3], svfBand[3], intLow, intBand;
