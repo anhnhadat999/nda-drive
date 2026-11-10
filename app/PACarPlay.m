@@ -41,10 +41,10 @@
 
 - (void)update {
     if (!self.ic) return;
-    // Cap nhat bang cach dat lai root (CPInformationTemplate khong cho sua item truc tiep o iOS 15)
-    CPInformationTemplate *cur = (CPInformationTemplate *)self.ic.rootTemplate;
-    CPInformationTemplate *neo = [self buildTemplate];
-    if ([cur isKindOfClass:CPInformationTemplate.class]) { @try { cur.items = neo.items; } @catch (__unused NSException *x) { [self.ic setRootTemplate:neo animated:NO completion:nil]; } }
-    else [self.ic setRootTemplate:neo animated:NO completion:nil];
+    // Cap nhat so lieu: thu sua item truc tiep; neu khong duoc thi dat lai template
+    id cur = self.ic.rootTemplate;
+    if ([cur isKindOfClass:CPInformationTemplate.class]) {
+        ((CPInformationTemplate *)cur).items = [self buildTemplate].items;
+    }
 }
 @end
