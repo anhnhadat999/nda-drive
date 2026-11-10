@@ -64,6 +64,7 @@ JNIEXPORT void JNICALL FN(gps)(JNIEnv *e, jclass c, jdouble speed, jdouble acc, 
 }
 JNIEXPORT void JNICALL FN(baro)(JNIEnv *e, jclass c, jdouble alt, jdouble t) { paf_baro(&F, alt, t); }
 
+JNIEXPORT void JNICALL FN(step)(JNIEnv *e, jclass c, jdouble dt) { pa_step(&S, dt); }
 JNIEXPORT void JNICALL FN(render)(JNIEnv *e, jclass c, jfloatArray buf, jint n, jdouble sr) {
     jfloat *p = (*e)->GetPrimitiveArrayCritical(e, buf, NULL);
     pa_render(&S, p, n, sr);

@@ -1,6 +1,6 @@
 Package: com.ndarealty.ndadrive
 Name: NDA Drive
-Version: 1.4.0
+Version: 1.5.0
 Architecture: iphoneos-arm
 Description: Pô ảo cho xe: giả lập tiếng pô xe thể thao (Porsche và các hãng nổi tiếng) theo tốc độ GPS, tự nổ máy khi kết nối Apple CarPlay.
 Maintainer: NDA Realty

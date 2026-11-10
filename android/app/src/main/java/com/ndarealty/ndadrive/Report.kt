@@ -31,6 +31,7 @@ object Report {
                 put("preset", p.preset); put("volume", p.volume); put("tone", p.tone); put("rear", p.rearAmt); put("sub", p.subAmt)
                 put("lead_ms", p.leadMs); put("auto_run", p.autoRun); put("need_speaker", p.needSpeaker); put("learn", p.learn); put("record", p.record)
                 put("car_hp", p.carHP); put("car_0_100_s", p.zeroTo100); put("car_weight_kg", p.carWeight)
+                put("collect_mode", p.collectMode)
                 put("interior", p.interior); put("mech", p.mech); put("perf_knee_kmh", p.perfKnee())
             })
             put("state_now", JSONObject().apply {
@@ -42,6 +43,10 @@ object Report {
             put("learned", JSONObject().apply {
                 put("sport", st[Core.SPORT]); put("confidence", st[Core.CONF]); put("zero_to_100_s", st[Core.Z100])
                 put("distance_km", st[Core.LDIST]); put("samples", st[Core.LSAMP])
+            })
+            put("thu_nghiem_7_ngay", JSONObject().apply {
+                put("ngay_da_thu_thap", p.trialDays()); put("can_du", 7); put("hoan_thanh", p.trialComplete())
+                put("tong_km", Math.round(p.trialKm() * 10) / 10.0); put("so_chuyen", p.trialTrips())
             })
             put("events_total", JSONObject(p.counters() as Map<*, *>))
             put("sensors", sensors)

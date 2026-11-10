@@ -177,7 +177,7 @@ class EngineService : Service(), SensorEventListener, LocationListener {
         startSensors()
         try { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0L, 0f, this, Looper.getMainLooper()) }
         catch (e: Exception) { NLog.i("GPS loi: ${e.message}") }
-        startAudio()
+        if (prefs.collectMode) startSilentStep() else startAudio()
         Core.engineStart()
         if (prefs.record) trip = TripRecorder(this).also { it.start() }
     }
@@ -194,7 +194,9 @@ class EngineService : Service(), SensorEventListener, LocationListener {
         active = false
         sm.unregisterListener(this)
         try { lm.removeUpdates(this) } catch (_: Exception) {}
+        trip?.let { prefs.trialAddDrive(it.distKm(), it.durSec()) }
         trip?.stop(); trip = null
+        stopSilentStep()
         saveLearn()
         wake?.let { if (it.isHeld) it.release() }; wake = null
         goForeground("Đang chờ xe khởi động")
@@ -271,6 +273,16 @@ class EngineService : Service(), SensorEventListener, LocationListener {
     override fun onProviderDisabled(p: String) { NLog.i("GPS bi tat trong cai dat") }
 
     // ---------------- Am thanh ----------------
+    // CHE DO THU THAP IM LANG: khong phat tieng, chi buoc vat ly synth 10Hz de ghi vong tua/so/tai
+    private var stepRun = false
+    private fun startSilentStep() {
+        if (stepRun) return; stepRun = true
+        val r = object : Runnable { override fun run() { if (!stepRun) return; Core.step(0.1); h.postDelayed(this, 100) } }
+        h.post(r)
+        NLog.i("Thu thap im lang: bat (khong phat tieng)")
+    }
+    private fun stopSilentStep() { stepRun = false }
+
     private fun startAudio() {
         if (audioThread != null) return
         audioRun = true

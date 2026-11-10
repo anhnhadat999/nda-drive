@@ -25,6 +25,7 @@ class Prefs(ctx: Context) {
     var record: Boolean get() = p.getBoolean("record", true); set(v) = p.edit().putBoolean("record", v).apply()
     var autoRun: Boolean get() = p.getBoolean("autoRun", true); set(v) = p.edit().putBoolean("autoRun", v).apply()
     var needSpeaker: Boolean get() = p.getBoolean("needSpk", true); set(v) = p.edit().putBoolean("needSpk", v).apply()
+    var collectMode: Boolean get() = p.getBoolean("collectMode", false); set(v) = p.edit().putBoolean("collectMode", v).apply()
     var trim: Float get() = p.getFloat("trim", 0f); set(v) = p.edit().putFloat("trim", v).apply()
 
     var learnBlob: ByteArray?
@@ -38,6 +39,21 @@ class Prefs(ctx: Context) {
     fun bump(key: String) { p.edit().putInt("cnt.$key", counter(key) + 1).apply() }
     fun counters(): Map<String, Int> = p.all.filterKeys { it.startsWith("cnt.") }.mapKeys { it.key.removePrefix("cnt.") }.mapValues { (it.value as? Int) ?: 0 }
 
+    // Giai doan thu nghiem 7 ngay
+    fun trialAddDrive(km: Double, sec: Double) {
+        if (sec < 20) return
+        val days = (p.getStringSet("tr.days", emptySet()) ?: emptySet()).toMutableSet()
+        days.add(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()))
+        p.edit().putStringSet("tr.days", days)
+            .putFloat("tr.km", p.getFloat("tr.km", 0f) + km.toFloat())
+            .putFloat("tr.sec", p.getFloat("tr.sec", 0f) + sec.toFloat())
+            .putInt("tr.trips", p.getInt("tr.trips", 0) + 1).apply()
+    }
+    fun trialDays(): Int = (p.getStringSet("tr.days", emptySet()) ?: emptySet()).size
+    fun trialKm(): Float = p.getFloat("tr.km", 0f)
+    fun trialTrips(): Int = p.getInt("tr.trips", 0)
+    fun trialComplete(): Boolean = trialDays() >= 7
+    fun trialReset() { p.edit().remove("tr.days").remove("tr.km").remove("tr.sec").remove("tr.trips").apply() }
     fun perfCap(): Double = if (zeroTo100 > 1) 27.78 / zeroTo100 * 1.4 else 0.0
     fun perfKnee(): Double {
         val cap = perfCap(); if (cap < 0.5 || carHP < 10 || carWeight < 100) return 50.0

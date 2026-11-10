@@ -1,6 +1,7 @@
 #import "PAAppDelegate.h"
 #import "PARootViewController.h"
 #import "PACarsViewController.h"
+#import "PADashboardViewController.h"
 #import "PASettingsViewController.h"
 #import "PAEngine.h"
 #import "PAUpdater.h"
@@ -44,7 +45,7 @@ static UINavigationController *nav(UIViewController *vc) {
     [PAEngine.shared boot];
     [self applyAppearance];
     UITabBarController *tb = [UITabBarController new];
-    tb.viewControllers = @[ nav([PARootViewController new]), nav([PACarsViewController new]), nav([PASettingsViewController new]) ];
+    tb.viewControllers = @[ nav([PARootViewController new]), nav([PADashboardViewController new]), nav([PACarsViewController new]), nav([PASettingsViewController new]) ];
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     self.window.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
     self.window.tintColor = PA_AMBER;

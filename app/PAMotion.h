@@ -15,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)addLocation:(CLLocation *)loc;
 @property (nonatomic, readonly) BOOL running;
 @property (atomic) BOOL feedSynth;            // NO khi dang o che do thu (toc do gia lap)
+@property (atomic) BOOL silentStep;          // che do thu thap im lang: tu buoc vat ly synth (khong co audio)
 // Doc de hien thi (cap nhat tren luong chinh ~5 lan/giay)
 @property (nonatomic, readonly) double speedKmh, accelMs2, gradePct, quality;
 @property (nonatomic, readonly) BOOL calibrated, stationary, gpsOk;

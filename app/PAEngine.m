@@ -44,7 +44,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
         [d registerDefaults:@{ @"enabled": @YES, @"onlyWithCarPlay": @YES, @"preset": @"gt3",
                                @"volume": @0.7, @"tone": @0.5, @"pops": @YES, @"shiftPop": @YES,
-                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7, @"subAmt": @0.6, @"growl": @0.6, @"crisp": @0.6, @"car0to100": @5.8, @"carHP": @349.0, @"carWeight": @1900.0, @"interior": @0.4, @"mech": @0.3, @"acousticCorr": @YES, @"latComp": @YES }];
+                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7, @"subAmt": @0.6, @"growl": @0.6, @"crisp": @0.6, @"car0to100": @5.8, @"carHP": @349.0, @"carWeight": @1900.0, @"interior": @0.4, @"mech": @0.3, @"collectMode": @NO, @"acousticCorr": @YES, @"latComp": @YES }];
         _enabled = [d boolForKey:@"enabled"];
         _onlyWithCarPlay = [d boolForKey:@"onlyWithCarPlay"];
         _presetKey = [d stringForKey:@"preset"] ?: @"gt3";
@@ -67,6 +67,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _carWeight = [d doubleForKey:@"carWeight"];
         _interior = [d doubleForKey:@"interior"];
         _mechanical = [d doubleForKey:@"mech"];
+        _collectMode = [d boolForKey:@"collectMode"];
         _latencyComp = [d boolForKey:@"latComp"];
         _acousticCorrection = [d boolForKey:@"acousticCorr"];
         [self applySettings];
@@ -153,6 +154,12 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
 - (void)setCarWeight:(double)v { _carWeight = v; [self save:@(v) key:@"carWeight"]; [self applySettings]; }
 - (void)setInterior:(double)v { _interior = v; [self save:@(v) key:@"interior"]; [self applySettings]; }
 - (void)setMechanical:(double)v { _mechanical = v; [self save:@(v) key:@"mech"]; [self applySettings]; }
+- (void)setCollectMode:(BOOL)v {
+    _collectMode = v; [self save:@(v) key:@"collectMode"];
+    ((PAMotion *)_motion).silentStep = v && _engineOn;
+    if (v) [self stopAudio]; else if (_engineOn) { _sessionReady = NO; [self startAudio]; }
+    [self evaluate];
+}
 - (double)perfKneeKmh { return _synth.perfKnee; }
 - (void)setRearAmount:(double)v { _rearAmount = v; [self save:@(v) key:@"rearAmt"]; [self applySettings]; }
 - (void)setRecordEnabled:(BOOL)v { _recordEnabled = v; [self save:@(v) key:@"record"]; [self applySettings]; if (!v) [_motion stopTrip]; }
@@ -259,7 +266,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 }
 
 - (void)startAudio {
-    if (!_enabled || _measuring) return;
+    if (!_enabled || _measuring || _collectMode) return;   // KHONG phat tieng khi thu thap im lang
     [self configureSession];
     if (!_audio) {
         _audio = [AVAudioEngine new];
@@ -372,6 +379,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         [_motion stopTrip];
         [PADiag.shared bump:@"engine_stop"];
     }
+    ((PAMotion *)_motion).silentStep = _collectMode && _engineOn;
     if (_enabled) [self startLocation];          // luon doc GPS + cam bien khi bat po ao (ke ca chua no may, tat man hinh)
     if (!_enabled) { [self stopLocation]; [self stopAudio]; }
     [NSNotificationCenter.defaultCenter postNotificationName:PAEngineDidUpdateNotification object:self];
@@ -423,7 +431,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
             [_motion restartSensors];
             [PADiag.shared bump:@"imu_restart"];
         }
-        if (_enabled && !_measuring && !_audio.isRunning) { PALog(@"Am thanh dung -> bat lai"); [PADiag.shared bump:@"audio_restart"]; _sessionReady = NO; [self startAudio]; }
+        if (_enabled && !_measuring && !_collectMode && !_audio.isRunning) { PALog(@"Am thanh dung -> bat lai"); [PADiag.shared bump:@"audio_restart"]; _sessionReady = NO; [self startAudio]; }
     }
     if (_tickCount % 10 == 0) { // moi 2 giay kiem tra lai duong ra am thanh
         BOOL r = [self routeIsCarPlay];

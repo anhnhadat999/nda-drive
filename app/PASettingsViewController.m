@@ -10,6 +10,7 @@
 #import "PADiag.h"
 #import "PAAcousticViewController.h"
 #import "PASyncViewController.h"
+#import "PATrial.h"
 
 typedef NS_ENUM(NSInteger, PASec) { SecCar, SecSound, SecLearn, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
 
@@ -47,7 +48,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecCar, SecSound, SecLearn, SecRun, SecTest,
     switch (s) {
         case SecCar: return 5;
         case SecSound: return 13;
-        case SecLearn: return 4;
+        case SecLearn: return 6;
         case SecRun: return 2;
         case SecTest: return 2;
         case SecStatus: return 4;
@@ -158,8 +159,10 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             return [self sliderCell:@"Rung sub gầm ghế" value:e.subAmount max:1 tag:5 detail:[NSString stringWithFormat:@"%.0f%%", e.subAmount * 100] enabled:YES];
         case SecLearn: {
             if (ip.row == 0) return [self switchCell:@"Tự học theo xe và cách lái" icon:@"brain" on:e.learnEnabled tag:18];
-            if (ip.row == 2) return [self switchCell:@"Thu thập dữ liệu cho Claude" icon:@"record.circle" on:e.recordEnabled tag:19];
-            if (ip.row == 3) return [self infoCell:@"Lịch sử chuyến đi" detail:nil icon:@"list.bullet.rectangle" tappable:YES];
+            if (ip.row == 1) return [self switchCell:@"Thu thập im lặng (không phát tiếng)" icon:@"waveform.slash" on:e.collectMode tag:24];
+            if (ip.row == 2) return [self switchCell:@"Ghi dữ liệu chuyến đi" icon:@"record.circle" on:e.recordEnabled tag:19];
+            if (ip.row == 3) { NSInteger dd=[PATrial daysDone]; return [self infoCell:@"Giai đoạn thử nghiệm 7 ngày" detail:([PATrial complete]?@"ĐỦ — xuất báo cáo":[NSString stringWithFormat:@"ngày %ld/7 · %.0f km", (long)dd, [PATrial totalKm]]) icon:@"calendar.badge.clock" tappable:YES]; }
+            if (ip.row == 4) return [self infoCell:@"Lịch sử chuyến đi" detail:nil icon:@"list.bullet.rectangle" tappable:YES];
             PALearn l = ((PAMotion *)e.motion).learned;
             double sp = pal_sport(&l);
             NSString *style = sp < 0.33 ? @"êm" : (sp < 0.66 ? @"vừa" : @"thể thao");
@@ -204,6 +207,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     } else if (ip.section == SecSound && ip.row == 9) {
         [self.navigationController pushViewController:[PAAcousticViewController new] animated:YES];
     } else if (ip.section == SecLearn && ip.row == 3) {
+        [self trialInfo]; return;
+    } else if (ip.section == SecLearn && ip.row == 4) {
         [self.navigationController pushViewController:[PATripsViewController new] animated:YES];
     } else if (ip.section == SecLearn && ip.row == 1) {
         [self.navigationController pushViewController:[PALearnViewController new] animated:YES];
@@ -257,6 +262,10 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:8 inSection:SecSound]] withRowAnimation:UITableViewRowAnimationNone];
             break;
         case 18: e.learnEnabled = s.on; break;
+        case 24:
+            e.collectMode = s.on;
+            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:3 inSection:SecLearn]] withRowAnimation:UITableViewRowAnimationNone];
+            break;
         case 19: e.recordEnabled = s.on; break;
         case 14:
             e.testMode = s.on;
@@ -282,6 +291,18 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     else if (s.tag == 3) { e.testSpeedKmh = round(s.value); d.text = [NSString stringWithFormat:@"%.0f km/h", round(s.value)]; }
 }
 
+
+- (void)trialInfo {
+    NSString *msg = [NSString stringWithFormat:@"Đã thu thập %ld/7 ngày.\nTổng %.0f km · %ld chuyến · %.0f phút.\n\n%@",
+        (long)[PATrial daysDone], [PATrial totalKm], (long)[PATrial totalTrips], [PATrial totalMinutes],
+        [PATrial complete] ? @"Đã đủ 7 ngày — hãy Xuất báo cáo cho Claude để tinh chỉnh." : @"Lái xe mỗi ngày (bật \"Thu thập im lặng\" nếu không muốn nghe tiếng) để đủ 7 ngày."];
+    UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Giai đoạn thử nghiệm" message:msg preferredStyle:UIAlertControllerStyleAlert];
+    [a addAction:[UIAlertAction actionWithTitle:@"Đóng" style:UIAlertActionStyleCancel handler:nil]];
+    [a addAction:[UIAlertAction actionWithTitle:@"Bắt đầu lại 7 ngày" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *x) {
+        [PATrial reset]; [self.tableView reloadData];
+    }]];
+    [self presentViewController:a animated:YES completion:nil];
+}
 
 - (void)askRealism {
     UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Tiếng pô vừa rồi thế nào?"

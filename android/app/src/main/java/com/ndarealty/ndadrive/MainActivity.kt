@@ -107,6 +107,9 @@ class MainActivity : Activity() {
         val c5 = card(root)
         toggle(c5, "Học thích nghi theo xe và cách lái", prefs.learn) { prefs.learn = it; prefs.apply() }
         toggle(c5, "Ghi lịch sử chuyến đi", prefs.record) { prefs.record = it }
+        toggle(c5, "Thu thập im lặng (không phát tiếng)", prefs.collectMode) { prefs.collectMode = it }
+        val trialTv = text("Thử nghiệm 7 ngày: %d/7 ngày · %.0f km".format(prefs.trialDays(), prefs.trialKm()), 13f, MUTED)
+        c5.addView(trialTv)
         var testOn = false
         val testSl = slider(c5, "Tốc độ giả lập (khi đỗ)", 0f, 1f, { "%.0f km/h".format(it * 200) }) { EngineService.instance?.testKmh = it * 200.0 }
         toggle(c5, "Giả lập tốc độ (chỉ dùng khi xe đỗ)", false) { testOn = it; EngineService.instance?.testMode = it; if (!it) Core.setTest(false, 0.0) }

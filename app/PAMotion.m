@@ -1,6 +1,7 @@
 #import "PAMotion.h"
 #import <CoreMotion/CoreMotion.h>
 #import "PALog.h"
+#import "PATrial.h"
 #import "PADiag.h"
 
 @implementation PAMotion {
@@ -23,6 +24,7 @@
     // ghi chuyen di (chi dung tren _q)
     NSFileHandle *_trip; NSURL *_tripURL; NSMutableString *_tripBuf;
     double _tripT0, _tripDist, _tripVmax, _tripAmax, _tripBmax, _tripLastTs; long _tripRows; NSDate *_tripStart;
+    double _stepLastTs;
     double _lastSavedTheta;
 }
 
@@ -176,6 +178,7 @@
         NSData *js = [NSJSONSerialization dataWithJSONObject:sum options:NSJSONWritingPrettyPrinted error:nil];
         [js writeToURL:[self->_tripURL URLByAppendingPathExtension:@"json"] atomically:YES];
         PALog(@"Ket thuc chuyen di: %.1f km, %.0f s, %ld mau", self->_tripDist, dur, self->_tripRows);
+        if (dur >= 20 && self->_tripRows >= 100) [PATrial addDriveKm:self->_tripDist seconds:dur];
         if (dur < 20 || self->_tripRows < 100) {   // bo chuyen qua ngan (bat/tat thu)
             [NSFileManager.defaultManager removeItemAtURL:self->_tripURL error:nil];
             [NSFileManager.defaultManager removeItemAtURL:[self->_tripURL URLByAppendingPathExtension:@"json"] error:nil];
@@ -293,6 +296,9 @@
         _synth->gpsSpeed = _f.gpsOk || _f.calibrated || _f.stationary ? _f.v * 3.6 * trim : -1;
         _synth->gpsAccel = _f.a * 3.6 * trim;
         _synth->grade = _f.grade;
+        // CHE DO IM LANG: khong co am thanh de buoc vat ly -> tu buoc o day ~10 Hz de van co vong tua/so/tai ghi lai
+        if (_silentStep) { double sdt = _stepLastTs > 0 ? ts - _stepLastTs : 0.1; if (sdt >= 0.09) { pa_step(_synth, sdt); _stepLastTs = ts; } }
+        else _stepLastTs = 0;
         _synth->gpsAge = 0;
     }
 

@@ -4,6 +4,8 @@
 #import "PALog.h"
 #import "PAAcousticMeasure.h"
 #import "PAZip.h"
+#import "PATrial.h"
+#import "PAAssess.h"
 #include <errno.h>
 #import <UIKit/UIKit.h>
 #import <CoreLocation/CoreLocation.h>
@@ -182,6 +184,9 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         rep[@"packages"] = [self installedPackages];
         rep[@"storage_dir"] = PADataDir().path ?: @"";
         rep[@"gop_y_chan_thuc"] = [NSUserDefaults.standardUserDefaults arrayForKey:@"realismFeedback"] ?: @[];
+        rep[@"thu_nghiem_7_ngay"] = [PATrial summary];
+        rep[@"danh_gia_he_thong"] = [PAAssess reportItemsFor:e];
+        rep[@"collect_mode"] = @(e.collectMode);
 
         NSFileManager *fm = NSFileManager.defaultManager;
         NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyyMMdd_HHmmss";

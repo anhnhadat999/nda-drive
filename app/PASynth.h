@@ -87,6 +87,9 @@ void pa_rear_eq_design(double eq[4][5], double sr, double amt);
 double pa_rear_eq_gain_db(double eq[4][5], double sr, double freq);
 // Tao n mau mono vao out (ghi de). sr = tan so lay mau.
 void pa_render(PASynth *s, float *out, int n, double sr);
+// Chay rieng phan vat ly (toc do, vong tua, so, tai) khong tao am thanh.
+// Dung cho che do THU THAP DU LIEU IM LANG: van co so lieu dong co gia lap de ghi lai.
+void pa_step(PASynth *s, double dt);
 
 #ifdef __cplusplus
 }

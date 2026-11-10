@@ -22,6 +22,7 @@ object Core {
     @JvmStatic external fun gps(speed: Double, acc: Double, course: Double, t: Double)
     @JvmStatic external fun baro(alt: Double, t: Double)
     @JvmStatic external fun render(buf: FloatArray, n: Int, sr: Double)
+    @JvmStatic external fun step(dt: Double)
     @JvmStatic external fun state(out: DoubleArray)
     @JvmStatic external fun learnGet(): ByteArray
     @JvmStatic external fun learnSet(b: ByteArray)

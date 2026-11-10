@@ -213,6 +213,12 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
 }
 
 // ---------- tong hop am thanh ----------
+void pa_step(PASynth *s, double dt) {
+    int pi = s->presetIndex; if (pi < 0 || pi >= PA_PRESET_COUNT) pi = 0;
+    if (dt <= 0) dt = 0.1; if (dt > 0.5) dt = 0.5;
+    physics(s, &PA_PRESETS[pi], dt);
+}
+
 void pa_render(PASynth *s, float *out, int n, double sr) {
     int pi = s->presetIndex; if (pi < 0 || pi >= PA_PRESET_COUNT) pi = 0;
     const PAPreset *p = &PA_PRESETS[pi];

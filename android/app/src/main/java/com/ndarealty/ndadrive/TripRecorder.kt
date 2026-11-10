@@ -50,6 +50,8 @@ class TripRecorder(private val ctx: Context) {
         if (rows % 20 == 0) out.flush()
     }
 
+    fun distKm(): Double = dist
+    fun durSec(): Double = (System.currentTimeMillis() - start) / 1000.0
     fun stop() {
         val f = file ?: return
         try { w?.close() } catch (_: Exception) {}
@@ -67,4 +69,4 @@ class TripRecorder(private val ctx: Context) {
     }
 }
 
-object BuildConfigLite { const val VERSION = "0.4.0" }
+object BuildConfigLite { const val VERSION = "0.5.0" }
