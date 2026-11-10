@@ -9,8 +9,8 @@
 	<key>CFBundleName</key><string>NDADrive</string>
 	<key>CFBundleDisplayName</key><string>NDA Drive</string>
 	<key>CFBundlePackageType</key><string>APPL</string>
-	<key>CFBundleShortVersionString</key><string>1.5.0</string>
-	<key>CFBundleVersion</key><string>23</string>
+	<key>CFBundleShortVersionString</key><string>1.5.1</string>
+	<key>CFBundleVersion</key><string>24</string>
 	<key>CFBundleSupportedPlatforms</key><array><string>iPhoneOS</string></array>
 	<key>MinimumOSVersion</key><string>15.0</string>
 	<key>UIDeviceFamily</key><array><integer>1</integer></array>
@@ -34,22 +34,5 @@
 	<string>NDA Drive dùng tốc độ GPS để tạo tiếng động cơ theo tốc độ xe.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Chọn "Luôn luôn" để NDA Drive tự chạy khi điện thoại kết nối CarPlay, kể cả khi bạn không mở app.</string>
-	<key>UIApplicationSceneManifest</key>
-	<dict>
-		<key>UIApplicationSupportsMultipleScenes</key>
-		<true/>
-		<key>UISceneConfigurations</key>
-		<dict>
-			<key>CPTemplateApplicationSceneSessionRoleApplication</key>
-			<array>
-				<dict>
-					<key>UISceneConfigurationName</key>
-					<string>NDACarPlay</string>
-					<key>UISceneDelegateClassName</key>
-					<string>PACarPlaySceneDelegate</string>
-				</dict>
-			</array>
-		</dict>
-	</dict>
 </dict>
 </plist>
