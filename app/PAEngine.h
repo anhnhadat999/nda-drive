@@ -40,7 +40,6 @@ extern NSString *const PAEngineDidUpdateNotification;
 @property (nonatomic) double interior;            // 0..1 giong ngoi trong xe
 @property (nonatomic) double mechanical;          // 0..1 tieng co khi
 @property (nonatomic) BOOL collectMode;           // thu thap du lieu IM LANG (khong phat tieng po)
-@property (nonatomic) BOOL collectMode;           // thu thap du lieu IM LANG (khong phat tieng po)
 @property (nonatomic, readonly) double perfKneeKmh; // nguong gioi han cong suat (hien thi)
 @property (nonatomic) BOOL acousticCorrection;   // ap dung bu khoang xe tu ket qua do
 - (void)pauseForMeasurement;
