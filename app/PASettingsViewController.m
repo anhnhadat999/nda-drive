@@ -14,6 +14,7 @@
 typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
 
 @implementation PASettingsViewController
+{ float _sliderMin; }
 
 - (instancetype)init {
     if ((self = [super initWithStyle:UITableViewStyleInsetGrouped])) {
@@ -45,7 +46,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch (s) {
         case SecSound: return 11;
-        case SecLearn: return 4;
+        case SecLearn: return 5;
         case SecRun: return 2;
         case SecTest: return 2;
         case SecStatus: return 4;
@@ -61,7 +62,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
     switch (s) {
         case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.\n\"Hiệu ứng tiếng từ phía sau\" lọc theo các dải tần mà tai người gắn với âm thanh phía sau (tăng ~1 kHz và ~11 kHz, giảm ~4 kHz), thêm tiếng ù qua thân xe và phản xạ khoang xe. Muốn tiếng phát hẳn từ loa sau, chỉnh Fader về phía sau trong cài đặt âm thanh của xe.\n\"Rung sub gầm ghế\" thêm lớp siêu trầm (dưới 90 Hz) theo nhịp nổ máy và cú \"thụp\" khi lên số. Loa sub của xe tự nhận dải này; tăng mức Bass/Sub trong cài đặt âm thanh xe nếu muốn rung mạnh hơn.\n\"Độ gằn\" làm thân tiếng dày và uy lực hơn, gằn sớm ngay cả khi đi nhẹ. \"Độ dòn\" làm mỗi tiếng nổ sắc, đanh và tách bạch hơn.";
-        case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi tự chỉnh độ gằn, độ dòn, điểm sang số cho khớp. Học hoàn toàn trên iPhone.\n\"Thu thập dữ liệu cho Claude\": ghi số liệu cảm biến mỗi chuyến (không có tọa độ, tên hay số điện thoại) để bạn xuất báo cáo gửi Claude, dùng cho việc cải thiện tiếng pô ở các bản sau. Bật liên tục để dữ liệu ngày càng nhiều, tiếng ngày càng đúng xe bạn.";
+        case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi tự chỉnh độ gằn, độ dòn, điểm sang số cho khớp. Học hoàn toàn trên iPhone.\n\"Thu thập dữ liệu cho Claude\": ghi số liệu cảm biến mỗi chuyến (không có tọa độ, tên hay số điện thoại) để bạn xuất báo cáo gửi Claude, dùng cho việc cải thiện tiếng pô ở các bản sau. Bật liên tục để dữ liệu ngày càng nhiều, tiếng ngày càng đúng xe bạn.\n\"Xe bứt tốc 0–100\": cho app biết xe mạnh cỡ nào. Xe điện mạnh (vd 350 mã lực, ~6 s) thì đi nhẹ tiếng thư giãn, chỉ khi đạp sâu mới gầm hết cỡ — giống xe thật.";
         case SecRun: return @"Bật mục này để xe tự nổ máy mỗi khi iPhone kết nối Apple CarPlay và tắt máy khi ngắt kết nối.";
         case SecTest: return @"Chỉ dùng khi xe đang đỗ. Kéo thanh tốc độ để nghe sang số mà không cần chạy xe.";
         case SecStatus: return @"\"Xuất báo cáo cho Claude\" đóng gói nhật ký, bộ đếm sự kiện, chất lượng cảm biến, lỗi thoát app và chuyến đi gần đây thành 1 tệp. Không chứa tọa độ, tên hay số điện thoại. Gửi tệp vào khung chat với Claude để phân tích.\nGắn iPhone cố định trên giá đỡ. Lần đầu lái, tăng tốc và phanh vài lần để máy tự học hướng xe.";
@@ -94,12 +95,13 @@ typedef NS_ENUM(NSInteger, PASec) { SecSound, SecLearn, SecRun, SecTest, SecStat
 }
 
 - (UITableViewCell *)sliderCell:(NSString *)title value:(float)v max:(float)max tag:(NSInteger)tag detail:(NSString *)detail enabled:(BOOL)en {
+    // _sliderMin dat truoc khi goi de co nguong duoi (vd 0-100 giay 3..12)
     UITableViewCell *c = [self baseCell];
     UILabel *l = [UILabel new]; l.text = title; l.textColor = PA_FG; l.font = [UIFont systemFontOfSize:17];
     UILabel *d = [UILabel new]; d.text = detail; d.textColor = PA_MUTED; d.font = [UIFont monospacedDigitSystemFontOfSize:15 weight:UIFontWeightMedium];
     d.textAlignment = NSTextAlignmentRight; d.tag = 900 + tag;
     UISlider *s = [UISlider new];
-    s.maximumValue = max; s.value = v; s.tag = tag; s.enabled = en;
+    s.maximumValue = max; s.minimumValue = _sliderMin; _sliderMin = 0; s.value = v; s.tag = tag; s.enabled = en;
     s.minimumTrackTintColor = PA_AMBER;
     [s addTarget:self action:@selector(slid:) forControlEvents:UIControlEventValueChanged];
     UIStackView *row = [[UIStackView alloc] initWithArrangedSubviews:@[l, d]];
@@ -146,6 +148,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             return [self sliderCell:@"Rung sub gầm ghế" value:e.subAmount max:1 tag:5 detail:[NSString stringWithFormat:@"%.0f%%", e.subAmount * 100] enabled:YES];
         case SecLearn: {
             if (ip.row == 0) return [self switchCell:@"Tự học theo xe và cách lái" icon:@"brain" on:e.learnEnabled tag:18];
+            if (ip.row == 1) { _sliderMin = 3; return [self sliderCell:@"Xe bứt tốc 0–100 km/h" value:e.car0to100 max:12 tag:8 detail:[NSString stringWithFormat:@"%.1f s", e.car0to100] enabled:YES]; }
             if (ip.row == 2) return [self switchCell:@"Thu thập dữ liệu cho Claude" icon:@"record.circle" on:e.recordEnabled tag:19];
             if (ip.row == 3) return [self infoCell:@"Lịch sử chuyến đi" detail:nil icon:@"list.bullet.rectangle" tappable:YES];
             PALearn l = ((PAMotion *)e.motion).learned;
@@ -260,6 +263,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     else if (s.tag == 5) { e.subAmount = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 6) { e.growl = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 7) { e.crispness = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
+    else if (s.tag == 8) { e.car0to100 = round(s.value * 2) / 2.0; d.text = [NSString stringWithFormat:@"%.1f s", e.car0to100]; }
     else if (s.tag == 4) { e.rearAmount = s.value; d.text = [NSString stringWithFormat:@"%.0f%%", s.value * 100]; }
     else if (s.tag == 3) { e.testSpeedKmh = round(s.value); d.text = [NSString stringWithFormat:@"%.0f km/h", round(s.value)]; }
 }

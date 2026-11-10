@@ -41,6 +41,7 @@ typedef struct {
     volatile double subAmt;       // lop tram cho loa sub gam ghe 0..1
     volatile double growl;        // do gan / uy luc: than tieng tram day hon, gan som hon 0..1 (0.5 chuan)
     volatile double crisp;        // do don: tieng no sac net, co rasp/crack 0..1 (0.5 chuan)
+    volatile double perfCap;      // do boc dinh toc do thap cua xe that (m/s^2); 0 = dung mo hinh preset
     volatile int corrOn;          // bu dap ung khoang xe (tu ket qua do am hoc)
     volatile double corrDb[9];    // 63 Hz .. 16 kHz
     volatile int corrVer;         // tang len moi khi doi corrDb

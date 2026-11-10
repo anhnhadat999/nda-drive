@@ -94,6 +94,7 @@ void pa_init(PASynth *s) {
     s->subAmt = 0.6;
     s->growl = 0.5;
     s->crisp = 0.5;
+    s->perfCap = 0;
 }
 
 static double learned_cap(PASynth *s, double v) {
@@ -141,6 +142,12 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     double aMax = GEAR_ACC[s->gear] / 3.6 * p->power * tq * 1.8;       // gia toc toi da o so hien tai (xe the thao)
     if (s->learnOn && s->learnCap[1] > 0.3)                             // da hoc: dung do boc THAT cua xe
         aMax = learned_cap(s, s->speed) * (0.85 + 0.15 * tq / 0.86) * 1.05;
+    // Xe that manh (vd xe dien 350 ma luc): dat san do boc thuc te theo toc do (manh khi cham, yeu dan khi nhanh).
+    // Nho vay lai nhe chi an mot phan ga -> tieng thu gian, chi khi dap sau moi gan het tai -> tieng gam that su.
+    if (s->perfCap > 0.5) {
+        double floorA = s->perfCap * (s->speed < 50 ? 1.0 : sqrt(50.0 / s->speed));   // tren 50 km/h: gioi han theo cong suat
+        if (floorA > aMax) aMax = floorA;
+    }
     double load;
     if (s->speed < 1) load = aMs > 0.3 ? clampd(aReq / aMax, 0.3, 1) : 0.1;   // dung yen / bat dau lan banh
     else if (aMs < -0.6 && aReq < 0.05) load = 0;                              // nha ga, phanh: dong co ghim

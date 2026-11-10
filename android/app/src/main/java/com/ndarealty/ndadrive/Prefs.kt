@@ -12,6 +12,7 @@ class Prefs(ctx: Context) {
     var subAmt: Float get() = p.getFloat("sub", 0.6f); set(v) = p.edit().putFloat("sub", v).apply()
     var growl: Float get() = p.getFloat("growl", 0.6f); set(v) = p.edit().putFloat("growl", v).apply()
     var crisp: Float get() = p.getFloat("crisp", 0.6f); set(v) = p.edit().putFloat("crisp", v).apply()
+    var zeroTo100: Float get() = p.getFloat("car0to100", 6.0f); set(v) = p.edit().putFloat("car0to100", v).apply()
     var leadMs: Int get() = p.getInt("lead", 200); set(v) = p.edit().putInt("lead", v).apply()
     var pops: Boolean get() = p.getBoolean("pops", true); set(v) = p.edit().putBoolean("pops", v).apply()
     var shiftPop: Boolean get() = p.getBoolean("shiftPop", true); set(v) = p.edit().putBoolean("shiftPop", v).apply()
@@ -41,7 +42,8 @@ class Prefs(ctx: Context) {
     fun apply() {
         Core.ensureInit()
         Core.setParams(presetIndex(), volume.toDouble(), tone.toDouble(), pops, shiftPop, autoVol, rearAmt > 0.01f,
-            rearAmt.toDouble(), subAmt.toDouble(), growl.toDouble(), crisp.toDouble(), learn, trim.toDouble(), 1.0)
+            rearAmt.toDouble(), subAmt.toDouble(), growl.toDouble(), crisp.toDouble(),
+            if (zeroTo100 > 1) 27.78 / zeroTo100 * 1.4 else 0.0, learn, trim.toDouble(), 1.0)
         Core.setLead(leadMs / 1000.0)
     }
 }

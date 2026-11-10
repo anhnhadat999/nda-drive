@@ -12,7 +12,7 @@ object Core {
     @JvmStatic external fun presetName(i: Int): String
     @JvmStatic external fun presetCar(i: Int): String
     @JvmStatic external fun setParams(preset: Int, vol: Double, tone: Double, pops: Boolean, shiftPop: Boolean, autoVol: Boolean,
-                                      rearFx: Boolean, rearAmt: Double, subAmt: Double, growl: Double, crisp: Double, learn: Boolean, trim: Double, resp: Double)
+                                      rearFx: Boolean, rearAmt: Double, subAmt: Double, growl: Double, crisp: Double, perfCap: Double, learn: Boolean, trim: Double, resp: Double)
     @JvmStatic external fun setLead(s: Double)
     @JvmStatic external fun engineStart()
     @JvmStatic external fun engineStop()
