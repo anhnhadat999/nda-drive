@@ -68,7 +68,18 @@ static void reset_cal(PAFusion *f) {
     f->Lx = f->Ly = f->Lc = 0; f->calByTurn = 0; f->Fvalid = 0; f->recheck = 0;
 }
 
+// Loai bo du lieu hong (NaN / vo cuc / qua lon): trinh duyet va mot so may Android co the gui NaN
+static int bad3(const double v[3], double lim) { for (int i = 0; i < 3; i++) if (!isfinite(v[i]) || fabs(v[i]) > lim) return 1; return 0; }
+// Tu hoi phuc neu trang thai bi hong (giu nguyen can chinh huong may)
+static void heal(PAFusion *f) {
+    if (isfinite(f->v) && isfinite(f->a) && isfinite(f->P00) && isfinite(f->P01) && isfinite(f->P11) && isfinite(f->b) && isfinite(f->aLp)) return;
+    f->v = isfinite(f->lastGpsV) && f->lastGpsV >= 0 ? f->lastGpsV : 0; f->a = 0; f->aLp = 0; f->b = 0; f->aLongRaw = 0; f->aGps = 0;
+    f->P00 = 4.0; f->P01 = 0; f->P11 = 0.25;
+    if (!isfinite(f->grade)) f->grade = 0;
+}
+
 void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], const double rot[3], double t) {
+    if (!isfinite(t) || bad3(userAcc, 200) || bad3(gravity, 200) || bad3(rot, 100)) return;
     int first = f->t == 0;
     double dt = first ? 0.01 : t - f->t;
     if (dt <= 0 || dt > 0.2) dt = 0.01;
@@ -197,6 +208,7 @@ void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], cons
     f->quality = (f->calibrated ? 0.6 : 0.3) + (f->gpsOk ? 0.4 : 0.1);
     if (f->calibrated) { for (int i = 0; i < 3; i++) f->F[i] = cos(f->theta) * e1[i] + sin(f->theta) * e2[i]; if (!f->Fvalid) memcpy(f->gF, f->g, sizeof f->g); f->Fvalid = 1; }
     else f->Fvalid = 0;
+    heal(f);
 }
 
 // toc do uoc luong tai thoi diem t (noi suy trong lich su)
@@ -215,13 +227,16 @@ static double hist_at(const PAFusion *f, double t, int *found) {
 }
 
 void paf_gps(PAFusion *f, double speed, double speedAcc, double course, double tFix) {
-    if (speed < 0) return;
+    if (!isfinite(speed) || speed < 0 || speed > 120 || !isfinite(tFix)) return;   // >432 km/h = hong
+    if (!isfinite(speedAcc)) speedAcc = -1;
+    if (!isfinite(course)) course = -1;
     double now = f->t > 0 ? f->t : tFix;
     f->gpsTotal++;
     // Ban tin lap lai y het ban truoc (toc do + huong) khi xe dang chay: so cu bi giu lai, KHONG phai do moi.
     // (VF7 gui vi tri cua xe qua CarPlay, co luc giu nguyen 1-5 giay.) Bo qua de khong keo toc do ve so cu.
     if (f->hasGps && speed == f->lastGpsV && course == f->lastGpsCourse && speed > 0.3) {
         f->gpsRep++; f->gpsRepTotal++;
+        if (f->gpsRep <= 6) f->lastFixWall = now;   // so cu nhung van con song GPS: khong coi la mat tin hieu (khong cap nhat toc do)
         return;
     }
     f->gpsRep = 0;
@@ -284,9 +299,11 @@ void paf_gps(PAFusion *f, double speed, double speedAcc, double course, double t
     f->hxSum = f->hySum = 0; f->hN = 0;
     f->lastGpsV = speed; f->lastGpsT = tFix; f->lastGpsCourse = course;
     f->hasGps = 1; f->lastFixWall = now;
+    heal(f);
 }
 
 void paf_baro(PAFusion *f, double relAltitude, double t) {
+    if (!isfinite(relAltitude) || !isfinite(t)) return;
     if (!f->hasBaro) { f->baroAlt = relAltitude; f->baroDist = f->dist; f->baroT = t; f->hasBaro = 1; return; }
     double dd = f->dist - f->baroDist;
     if (dd > 30) {

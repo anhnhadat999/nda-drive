@@ -103,7 +103,7 @@ nav button.act{color:var(--amb)}
 <script>
 "use strict";
 const WASM_B64="__WASM_B64__";
-const APP_VER="1.8.0-web";
+const APP_VER="1.8.1-web";
 const $=id=>document.getElementById(id);
 const toast=m=>{const t=$('toast');t.textContent=m;t.style.opacity=1;clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.opacity=0,2600)};
 
@@ -207,7 +207,7 @@ function dist(a,b){const R=6371000,r=Math.PI/180,dl=(b.latitude-a.latitude)*r,dn
 function onFix(p){
   const c=p.coords,now=performance.now();SEN.perm.geo='được cấp';SEN.gpsN++;SEN.lastGps=now;SEN.gpsAcc=c.accuracy;SEN.alt=c.altitude;
   SEN.caps.speed=SEN.caps.speed||c.speed!=null;SEN.caps.heading=SEN.caps.heading||c.heading!=null;SEN.caps.altitude=SEN.caps.altitude||c.altitude!=null;
-  let v=c.speed;
+  let v=c.speed;if(v!=null&&!isFinite(v))v=null;   // mot so trinh duyet gui NaN khi dung yen
   if(v==null&&SEN.prevFix&&c.accuracy<35){const dt=(p.timestamp-SEN.prevFix.t)/1000;if(dt>0.4&&dt<10)v=dist(SEN.prevFix.c,c)/dt}
   SEN.prevFix={c:{latitude:c.latitude,longitude:c.longitude},t:p.timestamp};
   if(v==null||c.accuracy>65)return;

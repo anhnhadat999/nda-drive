@@ -47,5 +47,9 @@ $CC -O2 -Wall -Wno-misleading-indentation -o "$OUT/ac" test/acoustic_test.c app/
 echo "== Hoc thich nghi: 2 xe x 2 phong cach lai"
 $CC -O2 -Wall -o "$OUT/learn" test/learn_test.c app/PALearn.c -lm
 "$OUT/learn" || fail=1
+echo "== Suc chiu dung: 15 tieng x 11 xe VinFast, du lieu GPS/cam bien hong (NaN, vo cuc, qua lon, thoi gian lui)"
+$CC -O2 -Wno-misleading-indentation -o "$OUT/stress" test/stress_test.c app/PASynth.c app/PAFusion.c app/PALearn.c -lm
+"$OUT/stress" 1.5 q > "$OUT/stress.txt" || fail=1
+tail -4 "$OUT/stress.txt"
 rm -rf "$OUT"
 if [ $fail = 0 ]; then echo "TAT CA KIEM THU: DAT"; else echo "CO KIEM THU KHONG DAT"; exit 1; fi

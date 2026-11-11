@@ -111,6 +111,10 @@ static double rpm_at(double speed, int g) { return speed / KMH_PER_1000[g] * 100
 
 // ---------- vat ly (moi buffer) ----------
 static void physics(PASynth *s, const PAPreset *p, double dt) {
+    // du lieu dau vao hong (NaN) -> coi nhu chua co GPS, khong de lan vao vat ly
+    if (!isfinite(s->gpsSpeed)) s->gpsSpeed = -1;
+    if (!isfinite(s->gpsAccel)) s->gpsAccel = 0;
+    if (!isfinite(s->grade)) s->grade = 0;
     if (s->requestStart) {
         s->requestStart = 0;
         if (s->state == PA_OFF || s->state == PA_STOPPING) { s->state = PA_STARTING; s->stateT = 0; }

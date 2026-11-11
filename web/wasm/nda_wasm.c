@@ -7,7 +7,7 @@
 #define EXPORT __attribute__((visibility("default")))
 static PASynth S; static PAFusion F; static PALearn L;
 static int learnEnabled = 1, testMode = 0;
-static double speedTrim = 0, learnLastT = 0, testPrev = 0;
+static double speedTrim = 0, learnLastT = 0, testPrev = 0, lastImuT = -100, lastGpsT = -100, lastGpsV = -1;
 static float buf[4096];
 static double st[32];
 
@@ -44,6 +44,7 @@ EXPORT void nda_set_test(int on, double kmh) {
 EXPORT void nda_imu(double ax, double ay, double az, double gx, double gy, double gz, double rx, double ry, double rz, double t) {
     double ua[3] = {ax, ay, az}, gr[3] = {gx, gy, gz}, rr[3] = {rx, ry, rz};
     paf_imu(&F, ua, gr, rr, t);
+    lastImuT = t;
     double ldt = learnLastT > 0 ? t - learnLastT : 0.01; learnLastT = t;
     if (learnEnabled) pal_update(&L, F.v * 3.6, F.aLongRaw, ldt, F.calibrated && F.gpsOk && !F.stationary);
     static int n = 0; if (++n % 100 == 0) push_learn();
@@ -53,7 +54,17 @@ EXPORT void nda_imu(double ax, double ay, double az, double gx, double gy, doubl
         S.gpsAccel = F.a * 3.6 * tr; S.grade = F.grade; S.gpsAge = 0;
     }
 }
-EXPORT void nda_gps(double speed, double acc, double course, double t) { paf_gps(&F, speed, acc, course, t); }
+EXPORT void nda_gps(double speed, double acc, double course, double t) {
+    paf_gps(&F, speed, acc, course, t);
+    // Trinh duyet khong cho doc cam bien chuyen dong (vd Safari bi tu choi quyen): dua thang GPS vao dong co gia lap
+    if (!testMode && t - lastImuT > 1.0 && speed >= 0 && speed < 120) {
+        double tr = 1.0 + speedTrim, dt = t - lastGpsT;
+        double a = (lastGpsV >= 0 && dt > 0.3 && dt < 5) ? (speed - lastGpsV) / dt : 0;
+        S.gpsSpeed = speed * 3.6 * tr; S.gpsAccel = fmax(-30, fmin(30, a * 3.6 * tr)); S.gpsAge = 0;
+    }
+    lastGpsT = t; lastGpsV = speed;
+}
+EXPORT int nda_imu_ok(double t) { return t - lastImuT < 1.0; }
 EXPORT void nda_step(double dt) { pa_step(&S, dt); }
 EXPORT float *nda_render(int n, double sr) { if (n > 4096) n = 4096; pa_render(&S, buf, n, sr); return buf; }
 EXPORT double *nda_state(void) {
