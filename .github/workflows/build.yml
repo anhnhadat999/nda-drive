@@ -10,7 +10,8 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-14
+    # GitHub dang thieu may macOS -> build tren Linux bang bo cong cu iOS chinh thuc cua Theos
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -18,12 +19,17 @@ jobs:
       - name: Kiem thu tu dong (bo tao am + bo do toc do)
         run: sh test/run_tests.sh
 
-      - name: Cai Theos
+      - name: Cai Theos (Linux)
         run: |
-          brew install ldid make xz dpkg
+          sudo apt-get update
+          sudo apt-get install -y build-essential fakeroot rsync curl perl zip git libxml2 xz-utils dpkg-dev libtinfo6
           git clone --recursive --depth 1 https://github.com/theos/theos.git "$HOME/theos"
+          mkdir -p "$HOME/theos/toolchain"
+          curl -sL https://github.com/L1ghtmann/llvm-project/releases/latest/download/iOSToolchain-x86_64.tar.xz | tar -xJf - -C "$HOME/theos/toolchain/"
+          test -x "$HOME/theos/toolchain/linux/iphone/bin/clang"
+          THEOS="$HOME/theos" "$HOME/theos/bin/install-sdk" latest
+          ls "$HOME/theos/sdks"
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
-          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
 
       - name: Bien dich goi .deb (rootless cho Dopamine)
         run: make package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
@@ -60,9 +66,9 @@ jobs:
             echo "Components: main"
             echo "Description: Nguồn cài đặt và cập nhật NDA Drive (pô ảo cho xe)"
             echo "MD5Sum:"
-            for f in Packages Packages.gz Packages.bz2; do echo " $(md5 -q $f) $(stat -f%z $f) $f"; done
+            for f in Packages Packages.gz Packages.bz2; do echo " $(md5sum $f | cut -d" " -f1) $(stat -c%s $f) $f"; done
             echo "SHA256:"
-            for f in Packages Packages.gz Packages.bz2; do echo " $(shasum -a 256 $f | cut -d' ' -f1) $(stat -f%z $f) $f"; done
+            for f in Packages Packages.gz Packages.bz2; do echo " $(sha256sum $f | cut -d" " -f1) $(stat -c%s $f) $f"; done
           } > Release
           touch .nojekyll
           cat Packages
