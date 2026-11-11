@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     # GitHub dang thieu may macOS -> build tren Linux bang bo cong cu iOS chinh thuc cua Theos
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -21,12 +21,14 @@ jobs:
 
       - name: Cai Theos (Linux)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential fakeroot rsync curl perl zip git libxml2 xz-utils dpkg-dev libtinfo6
+          for i in 1 2 3; do sudo apt-get update && break || sleep 15; done
+          sudo apt-get install -y fakeroot rsync zip xz-utils dpkg-dev libtinfo6 || sudo apt-get install -y fakeroot dpkg-dev || true
+          sudo apt-get install -y libxml2 || true
           git clone --recursive --depth 1 https://github.com/theos/theos.git "$HOME/theos"
           mkdir -p "$HOME/theos/toolchain"
           curl -sL https://github.com/L1ghtmann/llvm-project/releases/latest/download/iOSToolchain-x86_64.tar.xz | tar -xJf - -C "$HOME/theos/toolchain/"
-          test -x "$HOME/theos/toolchain/linux/iphone/bin/clang"
+          "$HOME/theos/toolchain/linux/iphone/bin/clang" --version | head -1
+          ls "$HOME/theos/toolchain/linux/iphone/bin" | head -30
           THEOS="$HOME/theos" "$HOME/theos/bin/install-sdk" latest
           ls "$HOME/theos/sdks"
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
