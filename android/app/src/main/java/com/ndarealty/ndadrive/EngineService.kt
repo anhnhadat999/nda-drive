@@ -91,7 +91,9 @@ class EngineService : Service(), SensorEventListener, LocationListener {
     @SuppressLint("MissingPermission")
     private fun watchGps() {
         if (active) return
-        try { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000L, 0f, this, Looper.getMainLooper()) }
+        // cam sac (xe bat): 2 giay/lan; chay pin: 10 giay/lan, chi khi di chuyen > 20 m (tiet kiem pin)
+        val (ms, m) = if (powered) Pair(2000L, 0f) else Pair(10000L, 20f)
+        try { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, ms, m, this, Looper.getMainLooper()) }
         catch (e: Exception) { NLog.i("GPS cho loi: ${e.message}") }
     }
 
@@ -150,6 +152,7 @@ class EngineService : Service(), SensorEventListener, LocationListener {
             prefs.bump(if (powered) "power_on" else "power_off")
             if (powered) userOff = false
             evaluate()
+            watchGps()
         }
     }
     private val devCb = object : AudioDeviceCallback() {

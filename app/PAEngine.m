@@ -27,6 +27,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     BOOL _booted, _routeCarPlay, _tweakCarPlay, _manualRun, _locating;
     BOOL _userOff, _lastCarPlay, _sessionReady, _restarting, _measuring;
     BOOL _motionRun; double _movingT, _stillT;   // tu phat hien xe chay
+    BOOL _lowPower; double _idleT; CLLocation *_idleAnchor;   // cho tiet kiem pin khi xe do
     double _lastGpsKick, _lastImuKick;
     double _lastFixSpeed, _lastFixAccel, _lastTestSpeed;
     NSTimeInterval _lastFixTime;
@@ -247,7 +248,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     [PADiag.shared bump:@"app_background"];
     PALog(@"App chay nen (tat man hinh / chuyen app). May %@, GPS %@, am thanh %@",
           _engineOn ? @"dang no" : @"tat", _locating ? @"bat" : @"tat", _audio.isRunning ? @"chay" : @"dung");
-    if (_engineOn) {
+    if (_engineOn || self.pipelineOn) {
         // iOS de giu GPS chay nen hon khi bat chi bao vi tri nen
         _lm.allowsBackgroundLocationUpdates = YES;
         [_lm startUpdatingLocation];
@@ -448,10 +449,44 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 
 - (BOOL)pipelineOn { return _enabled || _collectMode; }
 - (BOOL)drivingDetected { return _motionRun; }
+- (BOOL)lowPowerIdle { return _lowPower; }
+
+// ---- Cho tiet kiem pin: xe do > 2 phut (chua no may) -> GPS muc thap + tat cam bien. Xe lan banh -> bat lai day du ----
+- (void)enterLowPower {
+    if (_lowPower) return;
+    _lowPower = YES; _idleT = 0; _movingT = 0;
+    _idleAnchor = _lm.location;
+    _lm.desiredAccuracy = kCLLocationAccuracyHundredMeters;
+    _lm.distanceFilter = 40;
+    [_lm stopUpdatingHeading];
+    [_motion stop];
+    PALog(@"Xe do > 2 phut -> cho tiet kiem pin (GPS muc thap, tat cam bien)");
+    [PADiag.shared bump:@"idle_lowpower_enter"];
+}
+- (void)exitLowPower:(NSString *)why {
+    if (!_lowPower) return;
+    _lowPower = NO; _idleT = 0; _idleAnchor = nil;
+    _lm.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
+    _lm.distanceFilter = kCLDistanceFilterNone;
+    if (_locating && CLLocationManager.headingAvailable) [_lm startUpdatingHeading];
+    if (_locating) { _motion.feedSynth = !_testMode; [_motion start]; }
+    PALog(@"Thoat cho tiet kiem pin: %@", why);
+    [PADiag.shared bump:@"idle_lowpower_exit"];
+}
+- (void)managePower {
+    if (!self.pipelineOn || _engineOn || _manualRun || _testMode || !_locating || _measuring) {
+        if (_lowPower) [self exitLowPower:@"may no / tat thu thap"];
+        _idleT = 0; return;
+    }
+    if (_lowPower) return;
+    BOOL fresh = _motion.gpsAge < 5 && _motion.gpsRawKmh >= 0;
+    if ((fresh && _motion.gpsRawKmh < 4) || _motion.gpsAge > 30) _idleT += 0.2; else _idleT = 0;
+    if (_idleT >= 120) [self enterLowPower];
+}
 
 // Tu phat hien xe chay bang GPS (moi 0,2 s): >12 km/h lien tuc 4 s -> no may; <4 km/h lien tuc 3 phut -> tat
 - (void)detectDriving {
-    if (!self.pipelineOn || _testMode) return;
+    if (!self.pipelineOn || _testMode || _lowPower) return;
     double v = (_motion.gpsAge < 5 && _motion.gpsRawKmh >= 0) ? _motion.gpsRawKmh : _motion.speedKmh;
     if (v > 12) { _movingT += 0.2; _stillT = 0; }
     else { _movingT = fmax(0, _movingT - 0.4); if (v < 4) _stillT += 0.2; }
@@ -471,6 +506,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 - (void)tick {
     _tickCount++;
     [self detectDriving];
+    [self managePower];
     if (_tickCount % 25 == 1) {   // 5 giay: thong tin phu cho thong ke chuyen
         UIDevice *dv = UIDevice.currentDevice; dv.batteryMonitoringEnabled = YES;
         _motion.battLevel = dv.batteryLevel;
@@ -508,7 +544,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     }
     if (_locating) {
         double now = NSProcessInfo.processInfo.systemUptime;
-        if (_motion.gpsAge > 6 && now - _lastGpsKick > 10) {
+        if (!_lowPower && _motion.gpsAge > 6 && now - _lastGpsKick > 10) {
             _lastGpsKick = now;
             PALog(@"GPS im lang %.0f s -> khoi dong lai", _motion.gpsAge);
             [PADiag.shared bump:@"gps_restart"];
@@ -516,7 +552,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
             _lm.allowsBackgroundLocationUpdates = YES;
             [_lm startUpdatingLocation];
         }
-        if (_motion.imuAge > 2 && now - _lastImuKick > 10) {
+        if (!_lowPower && _motion.imuAge > 2 && now - _lastImuKick > 10) {
             _lastImuKick = now;
             [_motion restartSensors];
             [PADiag.shared bump:@"imu_restart"];
@@ -578,6 +614,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     [_lm stopMonitoringSignificantLocationChanges];
     [_lm stopUpdatingHeading];
     _locating = NO;
+    if (_lowPower) { _lowPower = NO; _idleT = 0; _idleAnchor = nil; _lm.desiredAccuracy = kCLLocationAccuracyBestForNavigation; _lm.distanceFilter = kCLDistanceFilterNone; }
     PALog(@"GPS: tat");
     _gpsSpeedKmh = -1;
     _synth.gpsSpeed = -1;
@@ -607,6 +644,13 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     CLLocation *loc = locations.lastObject;
     if (loc && loc.course >= 0 && loc.speed * 3.6 > 8) _headingDeg = loc.course;
     if (loc && loc.speed >= 0) _gpsSpeedKmh = loc.speed * 3.6;
+    // dang cho tiet kiem pin: xe da di chuyen -> bat lai GPS chinh xac + cam bien
+    if (_lowPower && loc && loc.horizontalAccuracy > 0) {
+        double dist = _idleAnchor ? [loc distanceFromLocation:_idleAnchor] : 0;
+        if (loc.speed * 3.6 > 8) [self exitLowPower:[NSString stringWithFormat:@"xe chay %.0f km/h", loc.speed * 3.6]];
+        else if (_idleAnchor && dist > fmax(80, 1.5 * loc.horizontalAccuracy)) [self exitLowPower:[NSString stringWithFormat:@"xe di chuyen %.0f m", dist]];
+        else if (!_idleAnchor && loc.horizontalAccuracy < 150) _idleAnchor = loc;
+    }
 }
 
 - (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
