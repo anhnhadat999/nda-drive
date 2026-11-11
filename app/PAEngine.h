@@ -39,7 +39,9 @@ extern NSString *const PAEngineDidUpdateNotification;
 @property (nonatomic) double carWeight;           // trong luong xe (kg)
 @property (nonatomic) double interior;            // 0..1 giong ngoi trong xe
 @property (nonatomic) double mechanical;          // 0..1 tieng co khi
-@property (nonatomic) BOOL collectMode;           // thu thap du lieu IM LANG (khong phat tieng po)
+@property (nonatomic) BOOL collectMode;
+@property (nonatomic, readonly) BOOL pipelineOn;      // cam bien + GPS + ghi du lieu dang hoat dong (= bat po ao HOAC thu thap im lang)
+@property (nonatomic, readonly) BOOL drivingDetected; // tu phat hien xe dang chay (GPS), khong can CarPlay           // thu thap du lieu IM LANG (khong phat tieng po)
 @property (nonatomic, readonly) double perfKneeKmh; // nguong gioi han cong suat (hien thi)
 @property (nonatomic) BOOL acousticCorrection;   // ap dung bu khoang xe tu ket qua do
 - (void)pauseForMeasurement;

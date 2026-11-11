@@ -24,6 +24,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     PAMotion *_motion;
     BOOL _booted, _routeCarPlay, _tweakCarPlay, _manualRun, _locating;
     BOOL _userOff, _lastCarPlay, _sessionReady, _restarting, _measuring;
+    BOOL _motionRun; double _movingT, _stillT;   // tu phat hien xe chay
     double _lastGpsKick, _lastImuKick;
     double _lastFixSpeed, _lastFixAccel, _lastTestSpeed;
     NSTimeInterval _lastFixTime;
@@ -103,7 +104,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _synth.perfKnee = fmax(25, fmin(160, knee));
     } else _synth.perfKnee = 50;
     _synth.interior = _interior;
-    _synth.mute = _collectMode;
+    _synth.mute = _collectMode || !_enabled;
     _synth.mech = _mechanical;
     PAAcousticResult ar;
     BOOL hasAr = [PAAcousticMeasure loadSaved:&ar];
@@ -271,7 +272,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 }
 
 - (void)startAudio {
-    if (!_enabled || _measuring) return;   // che do im lang van chay bo am thanh (giu app song nen), chi tat tieng qua synth.mute
+    if (!self.pipelineOn || _measuring) return;   // bo am thanh chay ca khi chi thu thap im lang (giu app song nen); tieng tat qua synth.mute
     [self configureSession];
     if (!_audio) {
         _audio = [AVAudioEngine new];
@@ -314,7 +315,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         self->_restarting = YES;
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             self->_restarting = NO;
-            if (self->_enabled && self->_audio && !self->_audio.isRunning) {
+            if (self.pipelineOn && self->_audio && !self->_audio.isRunning) {
                 NSError *err = nil;
                 [self->_audio prepare];
                 [self->_audio startAndReturnError:&err];
@@ -368,15 +369,17 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     if (car && !_lastCarPlay) { _userOff = NO; [PADiag.shared bump:@"carplay_connect"]; [PADiag.shared bump:_tweakCarPlay ? @"carplay_via_tweak" : @"carplay_via_route"]; }  // vua ket noi CarPlay: tu no may lai
     if (!car && _lastCarPlay) { _manualRun = NO; [PADiag.shared bump:@"carplay_disconnect"]; }        // vua rut CarPlay: tat may
     _lastCarPlay = car;
-    BOOL shouldRun = _enabled && !_userOff && (_manualRun || !_onlyWithCarPlay || car);
+    // May "no" (ghi chuyen di + tinh vat ly) khi: bam tay, HOAC ket noi CarPlay (neu bat tu no), HOAC tu phat hien xe dang chay
+    BOOL shouldRun = self.pipelineOn && !_userOff && (_manualRun || (car && _onlyWithCarPlay) || _motionRun);
+    _synth.mute = _collectMode || !_enabled;   // tat po ao hoac dang im lang -> khong phat tieng
     if (shouldRun && !_engineOn) {
         _engineOn = YES;
         [self startAudio];
         [self startLocation];
         _synth.requestStart = 1;      // tieng de may + no may
-        PALog(@"No may (CarPlay %@)", self.carPlayConnected ? @"co" : @"khong");
+        PALog(@"No may (%@)", car ? @"CarPlay" : _motionRun ? @"tu phat hien xe chay" : @"bam tay");
         [_motion startTrip];
-        [PADiag.shared bump:car ? @"engine_start_carplay" : @"engine_start_manual"];
+        [PADiag.shared bump:car ? @"engine_start_carplay" : _motionRun ? @"engine_start_motion" : @"engine_start_manual"];
     } else if (!shouldRun && _engineOn) {
         _engineOn = NO;
         _synth.requestStop = 1;       // tat may tu tu
@@ -385,13 +388,36 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         [PADiag.shared bump:@"engine_stop"];
     }
     ((PAMotion *)_motion).silentStep = NO;   // vat ly do pa_render buoc (bo am thanh luon chay)
-    if (_enabled) [self startLocation];          // luon doc GPS + cam bien khi bat po ao (ke ca chua no may, tat man hinh)
-    if (!_enabled) { [self stopLocation]; [self stopAudio]; }
+    if (self.pipelineOn) { [self startLocation]; [self startAudio]; }   // GPS + cam bien luon chay khi bat po ao HOAC thu thap im lang
+    else { [self stopLocation]; [self stopAudio]; }
     [NSNotificationCenter.defaultCenter postNotificationName:PAEngineDidUpdateNotification object:self];
+}
+
+- (BOOL)pipelineOn { return _enabled || _collectMode; }
+- (BOOL)drivingDetected { return _motionRun; }
+
+// Tu phat hien xe chay bang GPS (moi 0,2 s): >12 km/h lien tuc 4 s -> no may; <4 km/h lien tuc 3 phut -> tat
+- (void)detectDriving {
+    if (!self.pipelineOn || _testMode) return;
+    double v = (_motion.gpsAge < 5 && _motion.gpsRawKmh >= 0) ? _motion.gpsRawKmh : _motion.speedKmh;
+    if (v > 12) { _movingT += 0.2; _stillT = 0; }
+    else { _movingT = fmax(0, _movingT - 0.4); if (v < 4) _stillT += 0.2; }
+    if (!_motionRun && _movingT >= 4) {
+        _motionRun = YES; _userOff = NO;
+        PALog(@"Phat hien xe chay (%.0f km/h) -> no may", v);
+        [PADiag.shared bump:@"drive_detected"];
+        [self evaluate];
+    } else if (_motionRun && _stillT >= 180) {
+        _motionRun = NO; _stillT = 0;
+        PALog(@"Xe dung qua 3 phut -> ket thuc chuyen");
+        [PADiag.shared bump:@"drive_ended_still"];
+        [self evaluate];
+    }
 }
 
 - (void)tick {
     _tickCount++;
+    [self detectDriving];
     if (_testMode) {
         double v = _testSpeedKmh;
         _synth.gpsAccel = (v - _lastTestSpeed) / 0.2 * 0.5 + _synth.gpsAccel * 0.5;
@@ -436,7 +462,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
             [_motion restartSensors];
             [PADiag.shared bump:@"imu_restart"];
         }
-        if (_enabled && !_measuring && !_audio.isRunning) { PALog(@"Am thanh dung -> bat lai"); [PADiag.shared bump:@"audio_restart"]; _sessionReady = NO; [self startAudio]; }
+        if (self.pipelineOn && !_measuring && !_audio.isRunning) { PALog(@"Am thanh dung -> bat lai"); [PADiag.shared bump:@"audio_restart"]; _sessionReady = NO; [self startAudio]; }
     }
     if (_tickCount % 10 == 0) { // moi 2 giay kiem tra lai duong ra am thanh
         BOOL r = [self routeIsCarPlay];
@@ -505,7 +531,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 - (void)locationManagerDidChangeAuthorization:(CLLocationManager *)manager {
     PALog(@"Quyen vi tri doi: %d", (int)manager.authorizationStatus);
     [PADiag.shared bump:[NSString stringWithFormat:@"location_auth_%d", (int)manager.authorizationStatus]];
-    if (_engineOn) [self startLocation];
+    if (self.pipelineOn) [self startLocation];   // vua cap quyen -> bat GPS ngay
     [NSNotificationCenter.defaultCenter postNotificationName:PAEngineDidUpdateNotification object:self];
 }
 

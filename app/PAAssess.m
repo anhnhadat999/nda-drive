@@ -13,7 +13,8 @@
 
     // Che do + dang ghi
     NSString *mode = e.collectMode ? @"im lặng" : @"có tiếng";
-    if (!e.engineOn) add(@"Thu thập dữ liệu", [NSString stringWithFormat:@"chờ xe chạy (%@)", mode], 1);
+    if (!e.pipelineOn) add(@"Thu thập dữ liệu", @"TẮT — bật \"Thu thập im lặng\" hoặc \"Bật pô ảo\"", 2);
+    else if (!e.engineOn) add(@"Thu thập dữ liệu", [NSString stringWithFormat:@"chờ xe chạy (%@) · GPS %.0f km/h — tự ghi khi >12 km/h", mode, m.gpsAge < 5 ? m.gpsRawKmh : 0.0], 1);
     else if (m.recording) add(@"Thu thập dữ liệu", [NSString stringWithFormat:@"ĐANG GHI · %@ · %.0f phút", mode, m.tripRows / 600.0], 0);
     else add(@"Thu thập dữ liệu", @"máy nổ nhưng KHÔNG ghi — bật \"Ghi dữ liệu chuyến đi\"", 2);
 

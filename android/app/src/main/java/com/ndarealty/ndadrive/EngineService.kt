@@ -35,6 +35,9 @@ class EngineService : Service(), SensorEventListener, LocationListener {
     @Volatile var gpsHz = 0.0; private set
     @Volatile var gpsAcc = -1.0; private set
     @Volatile var gpsRawKmh = -1.0; private set
+    // tu phat hien xe chay bang GPS (khong can cam dien / loa)
+    @Volatile var motionRun = false; private set
+    private var movingSince = 0L; private var stillSince = 0L; private var lastFix = 0L
     @Volatile var sensorInfo = ""; private set
     @Volatile var testMode = false
     @Volatile var testKmh = 0.0
@@ -81,6 +84,28 @@ class EngineService : Service(), SensorEventListener, LocationListener {
         NLog.i("Dich vu khoi dong. Nguon: ${if (powered) "co" else "khong"}, loa: ${speakerName ?: "chua ket noi"}")
         prefs.bump("service_start")
         h.post(tick)
+        watchGps()
+    }
+
+    // GPS cho (1 lan/2 giay) khi chua no may: de tu phat hien xe bat dau chay
+    @SuppressLint("MissingPermission")
+    private fun watchGps() {
+        if (active) return
+        try { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000L, 0f, this, Looper.getMainLooper()) }
+        catch (e: Exception) { NLog.i("GPS cho loi: ${e.message}") }
+    }
+
+    private fun detectDriving(kmh: Double) {
+        val now = SystemClock.elapsedRealtime(); lastFix = now
+        if (kmh > 12) { stillSince = 0; if (movingSince == 0L) movingSince = now }
+        else { movingSince = 0; if (kmh in 0.0..4.0) { if (stillSince == 0L) stillSince = now } else stillSince = 0 }
+        if (!motionRun && movingSince > 0 && now - movingSince >= 4000) {
+            motionRun = true; userOff = false
+            NLog.i("Phat hien xe chay (${kmh.toInt()} km/h) -> no may"); prefs.bump("drive_detected"); evaluate()
+        } else if (motionRun && stillSince > 0 && now - stillSince >= 180_000) {
+            motionRun = false; stillSince = 0
+            NLog.i("Xe dung qua 3 phut -> ket thuc chuyen"); prefs.bump("drive_ended_still"); evaluate()
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -140,7 +165,7 @@ class EngineService : Service(), SensorEventListener, LocationListener {
 
     fun evaluate() {
         val carOn = powered && (!prefs.needSpeaker || speakerName != null)
-        val want = manual || (prefs.autoRun && carOn && !userOff)
+        val want = manual || (!userOff && ((prefs.autoRun && carOn) || motionRun))
         if (want) { offSince = 0; if (!active) activate() }
         else if (active) {
             // cho 15 giay (rut/cam lai, loa ket noi lai) truoc khi tat
@@ -151,6 +176,8 @@ class EngineService : Service(), SensorEventListener, LocationListener {
     private val tick = object : Runnable {
         override fun run() {
             if (active && offSince > 0 && SystemClock.elapsedRealtime() - offSince > 15000) { offSince = 0; deactivate() }
+            // mat GPS qua 5 phut khi dang chay tu dong -> coi nhu da dung
+            if (motionRun && lastFix > 0 && SystemClock.elapsedRealtime() - lastFix > 300_000) { motionRun = false; NLog.i("Mat GPS 5 phut -> ket thuc chuyen"); evaluate() }
             val now = SystemClock.elapsedRealtime()
             if (now - rateT >= 1000) {
                 val dt = (now - rateT) / 1000.0
@@ -169,7 +196,7 @@ class EngineService : Service(), SensorEventListener, LocationListener {
     @SuppressLint("MissingPermission")
     private fun activate() {
         active = true
-        NLog.i("NO MAY (nguon=${powered}, loa=${speakerName}, tay=${manual})")
+        NLog.i("NO MAY (nguon=${powered}, loa=${speakerName}, tay=${manual}, xe chay=${motionRun})")
         prefs.bump("engine_start")
         goForeground("Đang chạy tiếng pô")
         wake = (getSystemService(POWER_SERVICE) as PowerManager).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "nda:run").apply { acquire(6 * 3600_000L) }
@@ -200,6 +227,7 @@ class EngineService : Service(), SensorEventListener, LocationListener {
         saveLearn()
         wake?.let { if (it.isHeld) it.release() }; wake = null
         goForeground("Đang chờ xe khởi động")
+        watchGps()
     }
 
     fun saveLearn() {
@@ -265,6 +293,7 @@ class EngineService : Service(), SensorEventListener, LocationListener {
         val sp = if (l.hasSpeed()) l.speed.toDouble() else -1.0
         val sa = if (Build.VERSION.SDK_INT >= 26 && l.hasSpeedAccuracy()) l.speedAccuracyMetersPerSecond.toDouble() else -1.0
         gpsAcc = sa; gpsRawKmh = if (sp >= 0) sp * 3.6 else -1.0
+        if (sp >= 0 && l.accuracy <= 65) detectDriving(gpsRawKmh)
         if (sp < 0 || l.accuracy > 65) return
         Core.gps(sp, sa, if (l.hasBearing()) l.bearing.toDouble() else -1.0, l.elapsedRealtimeNanos / 1e9)
     }
