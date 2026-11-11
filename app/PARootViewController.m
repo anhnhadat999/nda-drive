@@ -61,8 +61,8 @@ static void dial(CGContextRef c, CGPoint ct, CGFloat R, double v, double maxV, d
 - (void)drawRect:(CGRect)rect {
     CGContextRef c = UIGraphicsGetCurrentContext();
     CGFloat W = self.bounds.size.width, H = self.bounds.size.height;
-    CGFloat R = MIN(W * 0.235, H * 0.5);
-    CGPoint L = CGPointMake(W * 0.255, H * 0.5), Rt = CGPointMake(W * 0.745, H * 0.5);
+    CGFloat R = MIN(W * 0.205, H * 0.48);
+    CGPoint L = CGPointMake(W * 0.235, H * 0.5), Rt = CGPointMake(W * 0.765, H * 0.5);
     dial(c, L, R, self.speed, 220, 0, 10, 40, @"KM/H", [NSString stringWithFormat:@"%.0f", self.speed], PA_AMBER);
     double maxR = ceil((self.redline + 1000) / 1000.0) * 1000;
     dial(c, Rt, R, self.rpm, maxR, self.redline, 500, 1000, @"×1000 V/P", [NSString stringWithFormat:@"%.1f", self.rpm / 1000], PA_AMBER);
@@ -74,7 +74,7 @@ static void dial(CGContextRef c, CGPoint ct, CGFloat R, double v, double maxV, d
     NSDictionary *cA = @{ NSFontAttributeName: PAFont(9, UIFontWeightSemibold), NSForegroundColorAttributeName: PA_MUTED, NSKernAttributeName: @2 };
     [@"SỐ" drawAtPoint:CGPointMake(W / 2 - 7, H * 0.5 - gs.height / 2 - 12) withAttributes:cA];
     // thanh tai (do dap ga) duoi so
-    CGFloat bw = W * 0.06, bh = H * 0.28, bx = W / 2 - bw / 2, by = H * 0.5 + gs.height / 2 + 6;
+    CGFloat bw = W * 0.035, bh = H * 0.24, bx = W / 2 - bw / 2, by = H * 0.5 + gs.height / 2 + 6;
     if (by + bh > H) bh = H - by - 2;
     if (bh > 8) {
         UIBezierPath *bg = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(bx, by, bw, bh) cornerRadius:3]; [PA_LINE setFill]; [bg fill];
@@ -110,6 +110,7 @@ static void dial(CGContextRef c, CGPoint ct, CGFloat R, double v, double maxV, d
         BOOL card = bi % 45 == 0, ten = bi % 15 == 0;
         [[PA_MUTED colorWithAlphaComponent:card ? 1 : 0.5] setStroke]; CGContextSetLineWidth(c, card ? 1.5 : 0.8);
         CGContextMoveToPoint(c, x, H - 4); CGContextAddLineToPoint(c, x, H - (card ? 12 : (ten ? 9 : 6))); CGContextStrokePath(c);
+        if (fabs(x - W / 2) < 26) continue;
         if (card) { NSString *t = names[bi / 45]; CGSize s = [t sizeWithAttributes:mA]; [t drawAtPoint:CGPointMake(x - s.width / 2, 3) withAttributes:mA]; }
         else if (ten) { NSString *t = [NSString stringWithFormat:@"%d", bi]; CGSize s = [t sizeWithAttributes:nA]; [t drawAtPoint:CGPointMake(x - s.width / 2, 6) withAttributes:nA]; }
     }
@@ -117,12 +118,10 @@ static void dial(CGContextRef c, CGPoint ct, CGFloat R, double v, double maxV, d
     [PA_AMBER setFill];
     UIBezierPath *tri = [UIBezierPath bezierPath];
     [tri moveToPoint:CGPointMake(W / 2 - 6, H)]; [tri addLineToPoint:CGPointMake(W / 2 + 6, H)]; [tri addLineToPoint:CGPointMake(W / 2, H - 8)]; [tri closePath]; [tri fill];
-    NSString *deg = self.heading < 0 ? @"—" : [NSString stringWithFormat:@"%03.0f°", h];
-    NSDictionary *dA = @{ NSFontAttributeName: PAMono(11, UIFontWeightSemibold), NSForegroundColorAttributeName: PA_AMBER };
+    NSString *deg = self.heading < 0 ? @"—" : [NSString stringWithFormat:@"%@ %03.0f°", names[((int)round(h / 45)) % 8], h];
+    NSDictionary *dA = @{ NSFontAttributeName: PAMono(12, UIFontWeightBold), NSForegroundColorAttributeName: PA_AMBER };
     CGSize ds = [deg sizeWithAttributes:dA];
-    UIBezierPath *pill = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(W - ds.width - 22, H / 2 - ds.height / 2 - 2, ds.width + 12, ds.height + 4) cornerRadius:6];
-    [PA_BG setFill]; [pill fill];
-    [deg drawAtPoint:CGPointMake(W - ds.width - 16, H / 2 - ds.height / 2) withAttributes:dA];
+    [deg drawAtPoint:CGPointMake(W / 2 - ds.width / 2, 4) withAttributes:dA];
 }
 @end
 
