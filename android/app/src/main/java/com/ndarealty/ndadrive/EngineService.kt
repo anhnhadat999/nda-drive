@@ -177,9 +177,9 @@ class EngineService : Service(), SensorEventListener, LocationListener {
         startSensors()
         try { lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0L, 0f, this, Looper.getMainLooper()) }
         catch (e: Exception) { NLog.i("GPS loi: ${e.message}") }
-        if (prefs.collectMode) startSilentStep() else startAudio()
+        startAudio()   // che do im lang: am thanh van chay nhung bi tat tieng (Core.setMute)
         Core.engineStart()
-        if (prefs.record) trip = TripRecorder(this).also { it.start() }
+        if (prefs.record || prefs.collectMode) trip = TripRecorder(this).also { it.start() }
     }
 
     private fun deactivate() {

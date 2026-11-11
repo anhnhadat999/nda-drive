@@ -210,7 +210,7 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         int csvN = 0;
         for (NSURL *u in trips) {
             if ([u.pathExtension isEqualToString:@"json"]) [fm copyItemAtURL:u toURL:[td URLByAppendingPathComponent:u.lastPathComponent] error:nil];
-            else if ([u.pathExtension isEqualToString:@"csv"] && csvN < 3) { [fm copyItemAtURL:u toURL:[td URLByAppendingPathComponent:u.lastPathComponent] error:nil]; csvN++; }
+            else if ([u.pathExtension isEqualToString:@"csv"] && csvN < (self.fullExport ? 100000 : 3)) { [fm copyItemAtURL:u toURL:[td URLByAppendingPathComponent:u.lastPathComponent] error:nil]; csvN++; }
         }
         [@"Gửi tệp .zip này cho Claude trong khung chat để phân tích và cải thiện NDA Drive.\nKhông chứa tọa độ GPS, tên hay số điện thoại.\n" writeToURL:[dir URLByAppendingPathComponent:@"DOC-TOI.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
 

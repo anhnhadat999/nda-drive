@@ -9,6 +9,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)installCrashHandlers;                 // goi som nhat khi app khoi dong
 - (void)bump:(NSString *)event;               // dem 1 su kien (phien nay + tong cong)
 - (void)noteValue:(double)v forKey:(NSString *)key;   // thong ke: trung binh / nho nhat / lon nhat
+@property (nonatomic) BOOL fullExport;   // YES: gom TAT CA chuyen di (giai doan 7 ngay), NO: 3 chuyen gan nhat
 - (void)buildReport:(void (^)(NSURL *_Nullable zip, NSString *_Nullable error))done;
 @end
 

@@ -45,6 +45,7 @@ typedef struct {
     volatile double perfKnee;     // km/h: tren nguong nay xe gioi han boi cong suat -> do boc giam ~1/v
     volatile double interior;     // 0..1 giong ngoi TRONG xe: loc bot the cao, u tram khoang xe
     volatile double mech;         // 0..1 tieng co khi (van, xich cam) tang theo vong tua
+    volatile int mute;            // che do thu thap im lang: van tinh vat ly, xuat ra im lang
     volatile int corrOn;          // bu dap ung khoang xe (tu ket qua do am hoc)
     volatile double corrDb[9];    // 63 Hz .. 16 kHz
     volatile int corrVer;         // tang len moi khi doi corrDb

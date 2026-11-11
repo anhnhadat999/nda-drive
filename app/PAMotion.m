@@ -6,6 +6,7 @@
 
 @implementation PAMotion {
     double _lastSavedG[3];
+    double _gpsHAcc;
     double _newIntv, _lastNewWall, _lastRawSpeed, _lastRawCourse; int _newFixFlag; BOOL _fromCar;
     PASynth *_synth;
     PAFusion _f;
@@ -154,11 +155,11 @@
         self->_tripT0 = 0; self->_tripDist = 0; self->_tripVmax = 0; self->_tripAmax = 0; self->_tripBmax = 0; self->_tripRows = 0; self->_tripLastTs = 0;
         PALog(@"Ghi chuyen di: %@", self->_tripURL.lastPathComponent);
     }];
-    // Giu toi da 40 chuyen gan nhat
+    // Giu toi da 150 chuyen gan nhat (du cho 7 ngay thu thap)
     NSArray *files = [[NSFileManager.defaultManager contentsOfDirectoryAtURL:[PAMotion tripsFolder] includingPropertiesForKeys:nil options:0 error:nil]
                       sortedArrayUsingComparator:^NSComparisonResult(NSURL *a, NSURL *b) { return [a.lastPathComponent compare:b.lastPathComponent]; }];
     NSArray *csv = [files filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"pathExtension == 'csv'"]];
-    for (NSInteger i = 0; i + 40 < (NSInteger)csv.count; i++) {
+    for (NSInteger i = 0; i + 150 < (NSInteger)csv.count; i++) {
         [NSFileManager.defaultManager removeItemAtURL:csv[i] error:nil];
         [NSFileManager.defaultManager removeItemAtURL:[csv[i] URLByAppendingPathExtension:@"json"] error:nil];
     }
@@ -204,6 +205,7 @@
         rr[0], rr[1], rr[2], gr[0], gr[1], gr[2], _newFixFlag, self.gpsDelayEst, _f.calByTurn, _fromCar, _synth->leadS * 1000, self.audioLatencyMs];
     _newFixFlag = 0;
     _tripRows++;
+    if (_tripRows == 600) dispatch_async(dispatch_get_main_queue(), ^{ [PATrial markToday]; });   // 1 phut du lieu -> tinh ngay
     if (_tripRows % 20 == 0) {           // ghi xuong may moi 2 giay
         [_trip writeData:[_tripBuf dataUsingEncoding:NSUTF8StringEncoding]];
         [_tripBuf setString:@""];
@@ -243,6 +245,8 @@
     } else if (_rateT == 0) { _rateT = now; _imuCountPrev = _imuCount; _gpsCountPrev = _gpsCountI; }
 }
 - (double)gpsAge { return NSProcessInfo.processInfo.systemUptime - _lastGpsWall; }
+- (BOOL)recording { return _trip != nil; }
+- (long)tripRows { return _tripRows; }
 - (double)gpsDelayEst { return _f.dlyN > 6 ? _f.gpsDelay : 0; }
 - (BOOL)calByTurn { return _f.calByTurn; }
 - (double)aLongNow { return _f.calibrated ? _f.aLongRaw : _f.a; }
@@ -337,7 +341,7 @@
     double speed = loc.speed;
     double acc = loc.speedAccuracy;  // iOS 10+; < 0 neu khong ro
     double course = loc.course;
-    _gpsAccuracy = acc; _gpsRawKmh = speed >= 0 ? speed * 3.6 : -1;
+    _gpsAccuracy = acc; _gpsRawKmh = speed >= 0 ? speed * 3.6 : -1; _gpsHAcc = loc.horizontalAccuracy;
     _gpsCountI++; _gpsCount = _gpsCountI;
     if (@available(iOS 15.0, *)) { _fromCar = loc.sourceInformation.isProducedByAccessory; }
     if (speed >= 0 && (speed != _lastRawSpeed || course != _lastRawCourse)) {   // ban tin MOI (khong lap so cu)

@@ -406,7 +406,7 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
             o = o * (1 - 0.8 * s->interior) + cabin * 0.8 * s->interior;
         }
         o *= s->master;
-        out[i] = (float)tanh(o * 1.2); // gioi han an toan
+        out[i] = s->mute ? 0.0f : (float)tanh(o * 1.2); // gioi han an toan; im lang khi thu thap
         s->rpmA = rpmA; s->loadA = loadA;
     }
 }

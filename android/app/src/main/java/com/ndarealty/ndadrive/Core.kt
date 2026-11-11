@@ -14,6 +14,7 @@ object Core {
     @JvmStatic external fun setParams(preset: Int, vol: Double, tone: Double, pops: Boolean, shiftPop: Boolean, autoVol: Boolean,
                                       rearFx: Boolean, rearAmt: Double, subAmt: Double, growl: Double, crisp: Double, perfCap: Double, perfKnee: Double, interior: Double, mech: Double, learn: Boolean, trim: Double, resp: Double)
     @JvmStatic external fun setLead(s: Double)
+    @JvmStatic external fun setMute(m: Boolean)
     @JvmStatic external fun engineStart()
     @JvmStatic external fun engineStop()
     @JvmStatic external fun setTest(on: Boolean, kmh: Double)

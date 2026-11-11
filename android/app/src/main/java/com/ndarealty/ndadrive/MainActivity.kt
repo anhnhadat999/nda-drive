@@ -24,6 +24,7 @@ class MainActivity : Activity() {
     private lateinit var prefs: Prefs
     private lateinit var speedTv: TextView; private lateinit var subTv: TextView; private lateinit var modeTv: TextView
     private lateinit var hudTv: TextView; private lateinit var runBtn: Button
+    private lateinit var trialTv: TextView
     private val h = Handler(Looper.getMainLooper())
     private val st = DoubleArray(24)
 
@@ -107,8 +108,8 @@ class MainActivity : Activity() {
         val c5 = card(root)
         toggle(c5, "Học thích nghi theo xe và cách lái", prefs.learn) { prefs.learn = it; prefs.apply() }
         toggle(c5, "Ghi lịch sử chuyến đi", prefs.record) { prefs.record = it }
-        toggle(c5, "Thu thập im lặng (không phát tiếng)", prefs.collectMode) { prefs.collectMode = it }
-        val trialTv = text("Thử nghiệm 7 ngày: %d/7 ngày · %.0f km".format(prefs.trialDays(), prefs.trialKm()), 13f, MUTED)
+        toggle(c5, "Thu thập im lặng (không phát tiếng)", prefs.collectMode) { prefs.collectMode = it; prefs.apply(); toast(if (it) "Đã bật: không phát tiếng, vẫn ghi dữ liệu" else "Đã tắt: phát tiếng bình thường") }
+        trialTv = text("Thử nghiệm 7 ngày: %d/7 ngày · %.0f km".format(prefs.trialDays(), prefs.trialKm()), 13f, MUTED)
         c5.addView(trialTv)
         var testOn = false
         val testSl = slider(c5, "Tốc độ giả lập (khi đỗ)", 0f, 1f, { "%.0f km/h".format(it * 200) }) { EngineService.instance?.testKmh = it * 200.0 }
@@ -118,6 +119,9 @@ class MainActivity : Activity() {
         section(root, "CẢM BIẾN")
         val c6 = card(root)
         hudTv = text("", 13f, FG).apply { typeface = Typeface.MONOSPACE }; c6.addView(hudTv)
+        c6.addView(button("Xuất TOÀN BỘ dữ liệu (7 ngày)", secondary = true) {
+            Thread { val f = Report.build(this, full = true); runOnUiThread { Report.share(this, f) } }.start()
+        })
         c6.addView(button("Xuất báo cáo cho Claude") {
             Thread { val f = Report.build(this); runOnUiThread { Report.share(this, f) } }.start()
         })
@@ -153,6 +157,7 @@ class MainActivity : Activity() {
                     if (st[Core.GPSDLY] > 0) "%.1f s".format(st[Core.GPSDLY]) else "đang ước lượng",
                     st[Core.LDIST], st[Core.SPORT], s.sensorInfo)
             }
+            trialTv.text = "Thử nghiệm 7 ngày: %d/7 ngày · %.0f km · %d chuyến%s".format(prefs.trialDays(), prefs.trialKm(), prefs.trialTrips(), if (prefs.collectMode) " · IM LẶNG" else "")
             h.postDelayed(this, 200)
         }
     }

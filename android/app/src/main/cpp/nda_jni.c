@@ -36,6 +36,7 @@ JNIEXPORT void JNICALL FN(setParams)(JNIEnv *e, jclass c, jint preset, jdouble v
     learnEnabled = learn; speedTrim = trim; F.sigScale = resp; push_learn();
 }
 JNIEXPORT void JNICALL FN(setLead)(JNIEnv *e, jclass c, jdouble s) { S.leadS = s; }
+JNIEXPORT void JNICALL FN(setMute)(JNIEnv *e, jclass c, jboolean m) { S.mute = m; }
 JNIEXPORT void JNICALL FN(engineStart)(JNIEnv *e, jclass c) { S.requestStart = 1; }
 JNIEXPORT void JNICALL FN(engineStop)(JNIEnv *e, jclass c) { S.requestStop = 1; }
 JNIEXPORT void JNICALL FN(setTest)(JNIEnv *e, jclass c, jboolean on, jdouble kmh) {

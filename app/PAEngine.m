@@ -103,6 +103,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _synth.perfKnee = fmax(25, fmin(160, knee));
     } else _synth.perfKnee = 50;
     _synth.interior = _interior;
+    _synth.mute = _collectMode;
     _synth.mech = _mechanical;
     PAAcousticResult ar;
     BOOL hasAr = [PAAcousticMeasure loadSaved:&ar];
@@ -111,7 +112,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     PAMotion *mo = _motion;
     mo.speedTrim = _speedTrim;
     mo.learnEnabled = _learnEnabled;
-    mo.recordEnabled = _recordEnabled;
+    mo.recordEnabled = _recordEnabled || _collectMode;   // thu thap im lang luon ghi
     mo.responseScale = _responseMode == 0 ? 0.6 : (_responseMode == 2 ? 1.6 : 1.0);
 }
 
@@ -156,8 +157,12 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
 - (void)setMechanical:(double)v { _mechanical = v; [self save:@(v) key:@"mech"]; [self applySettings]; }
 - (void)setCollectMode:(BOOL)v {
     _collectMode = v; [self save:@(v) key:@"collectMode"];
-    ((PAMotion *)_motion).silentStep = v && _engineOn;
-    if (v) [self stopAudio]; else if (_engineOn) { _sessionReady = NO; [self startAudio]; }
+    _synth.mute = v;
+    [self applySettings];
+    if (v && _engineOn) [_motion startTrip];
+    PALog(@"Thu thap im lang: %@", v ? @"BAT" : @"tat");
+    [PADiag.shared bump:v ? @"collect_on" : @"collect_off"];
+    if (_engineOn) [self startAudio];
     [self evaluate];
 }
 - (double)perfKneeKmh { return _synth.perfKnee; }
@@ -266,7 +271,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 }
 
 - (void)startAudio {
-    if (!_enabled || _measuring || _collectMode) return;   // KHONG phat tieng khi thu thap im lang
+    if (!_enabled || _measuring) return;   // che do im lang van chay bo am thanh (giu app song nen), chi tat tieng qua synth.mute
     [self configureSession];
     if (!_audio) {
         _audio = [AVAudioEngine new];
@@ -379,7 +384,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         [_motion stopTrip];
         [PADiag.shared bump:@"engine_stop"];
     }
-    ((PAMotion *)_motion).silentStep = _collectMode && _engineOn;
+    ((PAMotion *)_motion).silentStep = NO;   // vat ly do pa_render buoc (bo am thanh luon chay)
     if (_enabled) [self startLocation];          // luon doc GPS + cam bien khi bat po ao (ke ca chua no may, tat man hinh)
     if (!_enabled) { [self stopLocation]; [self stopAudio]; }
     [NSNotificationCenter.defaultCenter postNotificationName:PAEngineDidUpdateNotification object:self];
@@ -431,7 +436,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
             [_motion restartSensors];
             [PADiag.shared bump:@"imu_restart"];
         }
-        if (_enabled && !_measuring && !_collectMode && !_audio.isRunning) { PALog(@"Am thanh dung -> bat lai"); [PADiag.shared bump:@"audio_restart"]; _sessionReady = NO; [self startAudio]; }
+        if (_enabled && !_measuring && !_audio.isRunning) { PALog(@"Am thanh dung -> bat lai"); [PADiag.shared bump:@"audio_restart"]; _sessionReady = NO; [self startAudio]; }
     }
     if (_tickCount % 10 == 0) { // moi 2 giay kiem tra lai duong ra am thanh
         BOOL r = [self routeIsCarPlay];

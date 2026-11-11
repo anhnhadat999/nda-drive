@@ -47,6 +47,7 @@ class TripRecorder(private val ctx: Context) {
             s[Core.SSTATE].toInt(), s[Core.THETA], rot[0], rot[1], rot[2], -grav[0] / 9.81, -grav[1] / 9.81, -grav[2] / 9.81,
             newFix, s[Core.GPSDLY], s[Core.CALTURN].toInt(), s[Core.LEAD] * 1000, if (spk) 1 else 0))
         rows++
+        if (rows == 600) Prefs(ctx).trialMarkToday()   // 1 phut du lieu -> tinh ngay
         if (rows % 20 == 0) out.flush()
     }
 
@@ -69,4 +70,4 @@ class TripRecorder(private val ctx: Context) {
     }
 }
 
-object BuildConfigLite { const val VERSION = "0.5.0" }
+object BuildConfigLite { const val VERSION = "0.6.0" }

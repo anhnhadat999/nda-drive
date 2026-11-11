@@ -49,6 +49,10 @@ class Prefs(ctx: Context) {
             .putFloat("tr.sec", p.getFloat("tr.sec", 0f) + sec.toFloat())
             .putInt("tr.trips", p.getInt("tr.trips", 0) + 1).apply()
     }
+    fun trialMarkToday() {
+        val days = (p.getStringSet("tr.days", emptySet()) ?: emptySet()).toMutableSet()
+        if (days.add(java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()))) p.edit().putStringSet("tr.days", days).apply()
+    }
     fun trialDays(): Int = (p.getStringSet("tr.days", emptySet()) ?: emptySet()).size
     fun trialKm(): Float = p.getFloat("tr.km", 0f)
     fun trialTrips(): Int = p.getInt("tr.trips", 0)
@@ -70,5 +74,6 @@ class Prefs(ctx: Context) {
             rearAmt.toDouble(), subAmt.toDouble(), growl.toDouble(), crisp.toDouble(),
             perfCap(), perfKnee(), interior.toDouble(), mech.toDouble(), learn, trim.toDouble(), 1.0)
         Core.setLead(leadMs / 1000.0)
+        Core.setMute(collectMode)   // im lang: van chay am thanh + vat ly, chi tat tieng
     }
 }

@@ -127,7 +127,7 @@
 - (void)refresh {
     PAEngine *e=PAEngine.shared; PASynth *sy=e.synth;
     _gauge.speed=sy->speed; _gauge.rpm=sy->rpm; _gauge.gear=sy->gear+1; _gauge.load=sy->load; _gauge.running=(sy->state!=0);
-    _gauge.redline=4422>sy->rpm?7500:7500;  // vanh theo redline chung
+    { int pi = sy->presetIndex; if (pi < 0 || pi >= PA_PRESET_COUNT) pi = 0; _gauge.redline = PA_PRESETS[pi].redline; }   // vanh theo redline cua xe dang chon
     [_gauge setNeedsDisplay];
     CGFloat w=_loadBar.bounds.size.width*fmin(1,sy->load); _loadFill.frame=CGRectMake(0,0,w,16);
     _loadFill.backgroundColor = sy->load>0.85?PA_RED:PA_AMBER;

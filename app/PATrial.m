@@ -15,6 +15,16 @@
     return [f stringFromDate:[NSDate date]];
 }
 
++ (void)markToday {
+    NSMutableDictionary *d = [self st];
+    NSMutableArray *days = [(d[@"days"] ?: @[]) mutableCopy];
+    NSString *t = [self today];
+    if ([days containsObject:t]) return;
+    [days addObject:t]; d[@"days"] = days;
+    if (!d[@"start"]) d[@"start"] = @([NSDate date].timeIntervalSince1970);
+    [self put:d];
+}
+
 + (void)addDriveKm:(double)km seconds:(double)sec {
     if (sec < 20) return;                       // bo qua chuyen qua ngan
     NSMutableDictionary *d = [self st];

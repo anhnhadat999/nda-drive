@@ -11,6 +11,12 @@
     NSMutableArray *a = [NSMutableArray array];
     void (^add)(NSString *, NSString *, int) = ^(NSString *n, NSString *v, int lv) { [a addObject:@{ @"ten": n, @"gia_tri": v, @"muc": @(lv) }]; };
 
+    // Che do + dang ghi
+    NSString *mode = e.collectMode ? @"im lặng" : @"có tiếng";
+    if (!e.engineOn) add(@"Thu thập dữ liệu", [NSString stringWithFormat:@"chờ xe chạy (%@)", mode], 1);
+    else if (m.recording) add(@"Thu thập dữ liệu", [NSString stringWithFormat:@"ĐANG GHI · %@ · %.0f phút", mode, m.tripRows / 600.0], 0);
+    else add(@"Thu thập dữ liệu", @"máy nổ nhưng KHÔNG ghi — bật \"Ghi dữ liệu chuyến đi\"", 2);
+
     // Huong xe
     if (m.calibrated) add(@"Hướng đặt máy", m.calByTurn ? @"đã học (vào cua)" : @"đã học", 0);
     else add(@"Hướng đặt máy", [NSString stringWithFormat:@"đang học %.0f%% — rẽ vài khúc cua", m.calProgress * 100], 1);
@@ -21,9 +27,9 @@
     else add(@"Cảm biến", @"chưa có dữ liệu", 2);
 
     // GPS
-    double acc = m.gpsAccuracy;
+    double acc = m.gpsHAcc;   // do chinh xac vi tri (m)
     if (m.gpsHz >= 0.8 && acc > 0 && acc < 15) add(@"GPS", [NSString stringWithFormat:@"tốt (±%.0f m)", acc], 0);
-    else if (m.gpsHz >= 0.5 && acc < 35) add(@"GPS", [NSString stringWithFormat:@"trung bình (±%.0f m)", acc], 1);
+    else if (m.gpsHz >= 0.5 && acc > 0 && acc < 35) add(@"GPS", [NSString stringWithFormat:@"trung bình (±%.0f m)", acc], 1);
     else add(@"GPS", @"yếu / chưa bắt được", 2);
 
     // GPS lap (xe gui qua CarPlay)

@@ -51,7 +51,7 @@ typedef NS_ENUM(NSInteger, PASec) { SecCar, SecSound, SecLearn, SecRun, SecTest,
         case SecLearn: return 6;
         case SecRun: return 2;
         case SecTest: return 2;
-        case SecStatus: return 4;
+        case SecStatus: return 5;
         case SecUpdate: return 3;
     }
     return 0;
@@ -178,6 +178,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 0) return [self infoCell:@"Vị trí" detail:e.locationStatusText icon:@"location.fill" tappable:YES];
             if (ip.row == 1) return [self infoCell:@"Căn chỉnh cảm biến" detail:e.sensorStatusText icon:@"gyroscope" tappable:YES];
             if (ip.row == 3) return [self infoCell:@"Phân tích đồng bộ tiếng – xe" detail:nil icon:@"waveform.path.ecg" tappable:YES];
+            if (ip.row == 4) return [self infoCell:@"Xuất TOÀN BỘ dữ liệu (7 ngày)" detail:[NSString stringWithFormat:@"%ld chuyến", (long)[PATrial totalTrips]] icon:@"externaldrive.fill" tappable:YES];
             return [self infoCell:@"Xuất báo cáo cho Claude" detail:@"1 tệp .zip" icon:@"doc.zipper" tappable:YES];
         case SecUpdate:
             if (ip.row == 0) {
@@ -210,9 +211,10 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         [self trialInfo]; return;
     } else if (ip.section == SecLearn && ip.row == 4) {
         [self.navigationController pushViewController:[PATripsViewController new] animated:YES];
-    } else if (ip.section == SecLearn && ip.row == 1) {
+    } else if (ip.section == SecLearn && ip.row == 5) {
         [self.navigationController pushViewController:[PALearnViewController new] animated:YES];
-    } else if (ip.section == SecStatus && ip.row == 2) {
+    } else if (ip.section == SecStatus && (ip.row == 2 || ip.row == 4)) {
+        PADiag.shared.fullExport = (ip.row == 4);
         UIAlertController *wait = [UIAlertController alertControllerWithTitle:@"Đang đóng gói báo cáo…" message:@"Nhật ký, bộ đếm sự kiện, chất lượng cảm biến, lỗi thoát app, tóm tắt chuyến đi." preferredStyle:UIAlertControllerStyleAlert];
         [self presentViewController:wait animated:YES completion:^{
             [PADiag.shared buildReport:^(NSURL *zip, NSString *err) {

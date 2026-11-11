@@ -20,6 +20,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) double speedKmh, accelMs2, gradePct, quality;
 @property (nonatomic, readonly) BOOL calibrated, stationary, gpsOk;
 @property (nonatomic, readonly) double calProgress, mountAngleDeg, gpsAccuracy, gpsRawKmh;
+@property (nonatomic, readonly) double gpsHAcc;          // do chinh xac vi tri (m)
+@property (nonatomic, readonly) BOOL recording;          // dang ghi chuyen di
+@property (nonatomic, readonly) long tripRows;           // so dong da ghi chuyen hien tai
 @property (atomic) double speedTrim;          // hieu chinh toc do: -0.10..+0.10 (khop dong ho xe)
 @property (atomic) double responseScale;      // 0.6 on dinh, 1 can bang, 1.6 nhanh
 - (void)resetCalibration;

@@ -16,7 +16,7 @@ import java.util.zip.ZipOutputStream
 
 // "Xuat bao cao cho Claude": 1 tep .zip (bao-cao.json, nhat ky, 3 chuyen di gan nhat + tom tat moi chuyen)
 object Report {
-    fun build(ctx: Context): File {
+    fun build(ctx: Context, full: Boolean = false): File {
         val p = Prefs(ctx); val svc = EngineService.instance
         val st = DoubleArray(24); Core.ensureInit(); Core.state(st)
         val sm = ctx.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -60,7 +60,7 @@ object Report {
             NLog.file()?.takeIf { it.exists() }?.let { put("nhat-ky.txt", it.readBytes()) }
             val trips = TripRecorder.folder(ctx).listFiles()?.sortedByDescending { it.name } ?: emptyList()
             trips.filter { it.name.endsWith(".json") }.forEach { put("chuyen-di/${it.name}", it.readBytes()) }
-            trips.filter { it.name.endsWith(".csv") }.take(3).forEach { put("chuyen-di/${it.name}", it.readBytes()) }
+            trips.filter { it.name.endsWith(".csv") }.take(if (full) 100000 else 3).forEach { put("chuyen-di/${it.name}", it.readBytes()) }
             put("DOC-TOI.txt", "Gửi tệp .zip này cho Claude để phân tích. Không chứa tọa độ GPS, tên hay số điện thoại.\n".toByteArray())
         }
         NLog.i("Xuat bao cao: ${zip.name}")

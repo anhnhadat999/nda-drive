@@ -35,6 +35,9 @@ done; done
 echo "== Bo loc tieng tu phia sau (dap ung tan so)"
 $CC -O2 -Wall -o "$OUT/eq" test/rear_eq_test.c app/PASynth.c -lm
 "$OUT/eq" || fail=1
+echo "== Che do thu thap im lang (khong tieng, vat ly van chay)"
+$CC -O2 -Wall -Wno-misleading-indentation -o "$OUT/mute" test/mute_test.c app/PASynth.c -lm
+"$OUT/mute" || fail=1
 echo "== Nen .zip bao cao"
 $CC -O2 -Wall -o "$OUT/zt" test/zip_test.c app/PAZip.c -lz
 "$OUT/zt" "$OUT/t.zip" && python3 -c "import zipfile,sys;z=zipfile.ZipFile(sys.argv[1]);assert z.testzip() is None and len(z.namelist())==3;print('zip OK',z.namelist())" "$OUT/t.zip" || fail=1
