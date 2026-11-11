@@ -25,6 +25,8 @@
     // ghi chuyen di (chi dung tren _q)
     NSFileHandle *_trip; NSURL *_tripURL; NSMutableString *_tripBuf;
     double _tripT0, _tripDist, _tripVmax, _tripAmax, _tripBmax, _tripLastTs; long _tripRows; NSDate *_tripStart;
+    // thong ke chuyen (de cai tien ban sau)
+    double _gearT[8], _rpmH[10], _spdH[8], _accH[8], _gpsGapT, _stopT, _battStart, _latSum, _latMax; int _shifts, _lastGear, _thermMax, _gpsNewN;
     double _stepLastTs;
     double _lastSavedTheta;
 }
@@ -147,11 +149,13 @@
         NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyyMMdd_HHmmss";
         self->_tripStart = [NSDate date];
         self->_tripURL = [[PAMotion tripsFolder] URLByAppendingPathComponent:[NSString stringWithFormat:@"trip_%@.csv", [df stringFromDate:self->_tripStart]]];
-        NSString *head = @"t_s,gps_kmh,gps_acc_ms,fused_kmh,a_long_ms2,ax,ay,az,gyro_rads,grade_pct,tilt_deg,calibrated,stationary,gps_ok,src,synth_kmh,rpm,gear,load,state,cal_theta_deg,rx,ry,rz,gvx,gvy,gvz,gps_new,gps_delay_s,cal_turn,gps_car,lead_ms,audio_lat_ms\n";
+        NSString *head = @"t_s,gps_kmh,gps_acc_ms,fused_kmh,a_long_ms2,ax,ay,az,gyro_rads,grade_pct,tilt_deg,calibrated,stationary,gps_ok,src,synth_kmh,rpm,gear,load,state,cal_theta_deg,rx,ry,rz,gvx,gvy,gvz,gps_new,gps_delay_s,cal_turn,gps_car,lead_ms,audio_lat_ms,course_deg,gps_hacc_m,batt,thermal\n";
         [head writeToURL:self->_tripURL atomically:YES encoding:NSUTF8StringEncoding error:nil];
         self->_trip = [NSFileHandle fileHandleForWritingToURL:self->_tripURL error:nil];
         [self->_trip seekToEndOfFile];
         self->_tripBuf = [NSMutableString string];
+        memset(self->_gearT, 0, sizeof self->_gearT); memset(self->_rpmH, 0, sizeof self->_rpmH); memset(self->_spdH, 0, sizeof self->_spdH); memset(self->_accH, 0, sizeof self->_accH);
+        self->_gpsGapT = 0; self->_stopT = 0; self->_shifts = 0; self->_lastGear = -1; self->_thermMax = 0; self->_gpsNewN = 0; self->_latSum = 0; self->_latMax = 0; self->_battStart = self.battLevel;
         self->_tripT0 = 0; self->_tripDist = 0; self->_tripVmax = 0; self->_tripAmax = 0; self->_tripBmax = 0; self->_tripRows = 0; self->_tripLastTs = 0;
         PALog(@"Ghi chuyen di: %@", self->_tripURL.lastPathComponent);
     }];
@@ -175,7 +179,8 @@
             @"duration_s": @(round(dur)), @"distance_km": @(round(self->_tripDist * 100) / 100), @"vmax_kmh": @(round(self->_tripVmax * 10) / 10),
             @"accel_max_ms2": @(round(self->_tripAmax * 100) / 100), @"brake_max_ms2": @(round(self->_tripBmax * 100) / 100),
             @"rows": @(self->_tripRows), @"app": [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] ?: @"",
-            @"zero_to_100_est_s": @(round(pal_zero_to_100(&self->_learn) * 10) / 10), @"sport": @(round(pal_sport(&self->_learn) * 100) / 100) };
+            @"zero_to_100_est_s": @(round(pal_zero_to_100(&self->_learn) * 10) / 10), @"sport": @(round(pal_sport(&self->_learn) * 100) / 100),
+            @"tag": self.tripTag ?: @"", @"stats": [self tripStats:dur] };
         NSData *js = [NSJSONSerialization dataWithJSONObject:sum options:NSJSONWritingPrettyPrinted error:nil];
         [js writeToURL:[self->_tripURL URLByAppendingPathExtension:@"json"] atomically:YES];
         PALog(@"Ket thuc chuyen di: %.1f km, %.0f s, %ld mau", self->_tripDist, dur, self->_tripRows);
@@ -199,10 +204,26 @@
     double gm = sqrt(rr[0] * rr[0] + rr[1] * rr[1] + rr[2] * rr[2]);
     double gn = sqrt(gr[0] * gr[0] + gr[1] * gr[1] + gr[2] * gr[2]);
     double tilt = gn > 0 ? acos(fmin(1, fabs(gr[2]) / gn)) * 180 / M_PI : 0;
-    [_tripBuf appendFormat:@"%.2f,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.1f,%d,%d,%d,%d,%.2f,%.0f,%d,%.2f,%d,%.1f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d,%.2f,%d,%d,%.0f,%.0f\n",
+    [_tripBuf appendFormat:@"%.2f,%.2f,%.2f,%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.1f,%d,%d,%d,%d,%.2f,%.0f,%d,%.2f,%d,%.1f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%d,%.2f,%d,%d,%.0f,%.0f",
         ts - _tripT0, _gpsRawKmh, _gpsAccuracy, v, _f.calibrated ? _f.aLongRaw : _f.a, ua[0], ua[1], ua[2], gm, _f.grade * 100, tilt,
         _f.calibrated, _f.stationary, _f.gpsOk, _rawMode ? 2 : 1, _synth->speed, _synth->rpm, _synth->gear + 1, _synth->load, (int)_synth->state, _f.theta * 180 / M_PI,
         rr[0], rr[1], rr[2], gr[0], gr[1], gr[2], _newFixFlag, self.gpsDelayEst, _f.calByTurn, _fromCar, _synth->leadS * 1000, self.audioLatencyMs];
+    [_tripBuf appendFormat:@",%.1f,%.1f,%.2f,%d\n", _lastRawCourse, _gpsHAcc, self.battLevel, (int)NSProcessInfo.processInfo.thermalState];
+    // thong ke
+    if (dt > 0 && dt < 1) {
+        int g = _synth->gear; if (g >= 0 && g < 8) _gearT[g] += dt;
+        if (_lastGear >= 0 && g != _lastGear) _shifts++;
+        _lastGear = g;
+        int ri = (int)(_synth->rpm / 1000); if (ri >= 0 && ri < 10) _rpmH[ri] += dt;
+        int si = (int)(v / 20); _spdH[si < 0 ? 0 : (si > 7 ? 7 : si)] += dt;
+        double al = _f.calibrated ? _f.aLongRaw : _f.a;
+        int ai = (int)floor((al + 4) / 1.0); _accH[ai < 0 ? 0 : (ai > 7 ? 7 : ai)] += dt;   // -4..+4 m/s2, buoc 1
+        if (v < 2) _stopT += dt;
+        if (self.gpsAge > 3) _gpsGapT += dt;
+    }
+    _gpsNewN += _newFixFlag;
+    _latSum += self.audioLatencyMs; if (self.audioLatencyMs > _latMax) _latMax = self.audioLatencyMs;
+    int th = (int)NSProcessInfo.processInfo.thermalState; if (th > _thermMax) _thermMax = th;
     _newFixFlag = 0;
     _tripRows++;
     if (_tripRows == 600) dispatch_async(dispatch_get_main_queue(), ^{ [PATrial markToday]; });   // 1 phut du lieu -> tinh ngay
@@ -210,6 +231,18 @@
         [_trip writeData:[_tripBuf dataUsingEncoding:NSUTF8StringEncoding]];
         [_tripBuf setString:@""];
     }
+}
+
+static NSArray *arr(const double *a, int n) { NSMutableArray *r = [NSMutableArray array]; for (int i = 0; i < n; i++) [r addObject:@(round(a[i] * 10) / 10)]; return r; }
+- (double)tripKm { return _trip ? _tripDist : 0; }
+- (double)tripVmax { return _trip ? _tripVmax : 0; }
+- (NSDictionary *)tripStats:(double)dur {
+    return @{ @"gear_time_s": arr(_gearT, 8), @"rpm_hist_s_per_1000": arr(_rpmH, 10), @"speed_hist_s_per_20kmh": arr(_spdH, 8),
+              @"accel_hist_s_m4_to_p4": arr(_accH, 8), @"shifts": @(_shifts), @"stopped_s": @(round(_stopT)), @"gps_gap_s": @(round(_gpsGapT)),
+              @"gps_new_fixes": @(_gpsNewN), @"gps_fix_per_min": @(dur > 0 ? round(_gpsNewN / dur * 600) / 10 : 0),
+              @"audio_lat_avg_ms": @(_tripRows ? round(_latSum / _tripRows) : 0), @"audio_lat_max_ms": @(round(_latMax)),
+              @"battery_start": @(round(_battStart * 100) / 100), @"battery_end": @(round(self.battLevel * 100) / 100), @"charging": @(self.battCharging),
+              @"thermal_max": @(_thermMax), @"calibrated_end": @(_f.calibrated), @"cal_by_turn": @(_f.calByTurn), @"mount_angle_deg": @(round(_f.theta * 1800 / M_PI) / 10) };
 }
 
 - (void)pushLearnToSynth {

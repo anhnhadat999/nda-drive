@@ -1,4 +1,6 @@
 #import "PADiag.h"
+#import "PAVehicles.h"
+#import "PAProfiles.h"
 #import "PAEngine.h"
 #import "PAMotion.h"
 #import "PALog.h"
@@ -60,6 +62,7 @@ static void PAExceptionHandler(NSException *e) {
 }
 
 - (NSURL *)docs { return PADataDir(); }
+- (NSInteger)crashCount { return (NSInteger)[NSFileManager.defaultManager contentsOfDirectoryAtPath:[self crashDir].path error:nil].count; }
 - (NSURL *)crashDir { NSURL *u = [[self docs] URLByAppendingPathComponent:@"crashes" isDirectory:YES]; [NSFileManager.defaultManager createDirectoryAtURL:u withIntermediateDirectories:YES attributes:nil error:nil]; return u; }
 
 - (void)installCrashHandlers {
@@ -172,6 +175,14 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
             return @{ @"measured": @YES, @"latency_ms": @(ar.latencyMs), @"snr_db": @(ar.snrDb), @"noise_dbfs": @(ar.noiseDbfs), @"bands": bands, @"correction": corr, @"correction_on": @(e.acousticCorrection), @"last_attempt": last };
         }(),
     };
+    PAVehicle *veh = [PAVehicles byId:e.vehicleId];
+    NSDictionary *vehInfo = veh ? @{ @"id": veh.vid, @"ten": veh.title, @"hp": @(veh.hp), @"kw": @(veh.kw), @"kg": @(veh.weightKg), @"t100": @(veh.zeroTo100), @"drive": veh.drive, @"uoc_tinh": @(veh.estimated) }
+                                : @{ @"id": e.vehicleId ?: @"custom", @"hp": @(e.carHP), @"kg": @(e.carWeight), @"t100": @(e.car0to100) };
+    NSDictionary *profInfo = @{ @"server_rev": @(PAProfiles.shared.serverRev), @"applied_rev": @([PAProfiles.shared appliedRevFor:e.vehicleId ?: @""]), @"auto": @(e.autoProfile), @"status": [PAProfiles.shared statusText] };
+    UIDevice.currentDevice.batteryMonitoringEnabled = YES;
+    NSDictionary *devInfo = @{ @"battery": @(UIDevice.currentDevice.batteryLevel), @"battery_state": @(UIDevice.currentDevice.batteryState),
+        @"thermal": @(NSProcessInfo.processInfo.thermalState), @"low_power": @(NSProcessInfo.processInfo.lowPowerModeEnabled),
+        @"free_bytes": [[NSFileManager.defaultManager attributesOfFileSystemForPath:NSHomeDirectory() error:nil] objectForKey:NSFileSystemFreeSize] ?: @0 };
     dispatch_async(_q, ^{
         NSMutableDictionary *rep = [mainInfo mutableCopy];
         rep[@"events_session"] = [self->_session copy];
@@ -187,6 +198,10 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         rep[@"thu_nghiem_7_ngay"] = [PATrial summary];
         rep[@"danh_gia_he_thong"] = [PAAssess reportItemsFor:e];
         rep[@"collect_mode"] = @(e.collectMode);
+        rep[@"xe"] = vehInfo;
+        rep[@"nguoi_lai_thu"] = e.testerTag ?: @"";
+        rep[@"ho_so_may_chu"] = profInfo;
+        rep[@"thiet_bi_luc_xuat"] = devInfo;
 
         NSFileManager *fm = NSFileManager.defaultManager;
         NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyyMMdd_HHmmss";

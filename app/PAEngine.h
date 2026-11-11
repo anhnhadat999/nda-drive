@@ -57,6 +57,19 @@ extern NSString *const PAEngineDidUpdateNotification;
 @property (nonatomic) BOOL testMode;             // dung toc do gia lap thay cho GPS
 @property (nonatomic) double testSpeedKmh;
 
+// ---- Xe dang lai (thong so co dinh theo hang) + ho so may chu ----
+@property (nonatomic, copy) NSString *vehicleId;     // vd "vf7-plus"; "custom" = tu nhap
+@property (nonatomic) BOOL autoProfile;              // tu ap dung ho so chuan cua xe tu may chu
+@property (nonatomic, copy) NSString *testerTag;     // biet danh nguoi lai thu (ban be), ghi vao bao cao
+- (void)selectVehicle:(NSString *)vid;
+@property (nonatomic, readonly) double headingDeg;   // huong xe 0..360 (GPS khi chay, la ban khi dung); -1 = chua co
+
+// ---- Che do ----
+- (void)startDriveMode;     // tab No may: bat po ao + no may
+- (void)stopDriveMode;
+- (void)startTracking;      // tab Theo doi: chi thu thap im lang, tu phat hien xe chay
+- (void)stopTracking;
+
 - (void)requestLocationPermission;
 - (void)manualStart;
 - (void)manualStop;

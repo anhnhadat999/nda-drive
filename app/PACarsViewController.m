@@ -1,6 +1,7 @@
 #import "PACarsViewController.h"
 #import "PAEngine.h"
 #import "PATheme.h"
+#import "PAVehicles.h"
 
 // Danh sach chon xe: chi ten xe + thong so, kieu bang nhom chuan iOS
 @implementation PACarsViewController {
@@ -9,8 +10,7 @@
 
 - (instancetype)init {
     if ((self = [super initWithStyle:UITableViewStyleInsetGrouped])) {
-        self.title = @"Chọn xe";
-        self.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Chọn xe" image:[UIImage systemImageNamed:@"car.fill"] tag:1];
+        self.title = @"Lựa chọn âm thanh";
     }
     return self;
 }
@@ -32,9 +32,9 @@
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return 2; }
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s { return _groups[s].count; }
-- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s { return s == 0 ? @"Porsche" : @"Các hãng khác"; }
+- (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s { return s == 0 ? @"Phong cách boxer (kiểu Porsche)" : @"Các kiểu động cơ khác"; }
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
-    return s == 1 ? @"Âm thanh được tổng hợp mô phỏng theo chất tiếng của từng kiểu động cơ, không phải bản ghi âm từ xe thật." : nil;
+    return s == 1 ? @"Mọi tiếng pô được TỔNG HỢP bằng thuật toán theo vật lý của từng kiểu động cơ (số xi-lanh, thứ tự nổ, cộng hưởng ống xả), không dùng bản ghi âm có bản quyền.\nMỗi tiếng được tách thành nhiều lớp riêng: nổ xi-lanh, cộng hưởng ống xả 3 dải, hút gió, turbo/xả van, nổ lụp bụp, tiếng cơ khí và lớp siêu trầm cho sub. Chế độ Tự động hoá dùng số liệu bạn lái để tự chỉnh từng lớp cho khớp xe.\n★ = gợi ý cho xe bạn đang chọn." : nil;
 }
 
 static NSString *subtitleOf(const PAPreset *p) {
@@ -54,8 +54,15 @@ static NSString *subtitleOf(const PAPreset *p) {
     c.textLabel.text = @(p->name);
     c.textLabel.font = PAFont(18, UIFontWeightBold);
     c.textLabel.textColor = sel ? PA_AMBER : PA_FG;
-    c.detailTextLabel.text = [NSString stringWithFormat:@"%@\n%d xi-lanh · %.0f v/p%@", subtitleOf(p), p->cyl, p->redline, p->turbo ? @" · turbo" : @""];
-    c.detailTextLabel.numberOfLines = 2;
+    NSMutableArray *ly = [NSMutableArray arrayWithObjects:@"nổ", @"ống xả", nil];
+    if (p->intake > 0) [ly addObject:@"hút gió"];
+    if (p->turbo) [ly addObject:@"turbo"];
+    if (p->vtec > 0) [ly addObject:@"VTEC"];
+    [ly addObjectsFromArray:@[@"lụp bụp", @"cơ khí", @"sub"]];
+    PAVehicle *veh = [PAVehicles byId:PAEngine.shared.vehicleId];
+    if (veh && [veh.preset isEqualToString:@(p->key)]) c.textLabel.text = [@"★ " stringByAppendingString:@(p->name)];
+    c.detailTextLabel.text = [NSString stringWithFormat:@"%@\n%d xi-lanh · %.0f v/p%@\nLớp: %@", subtitleOf(p), p->cyl, p->redline, p->turbo ? @" · turbo" : @"", [ly componentsJoinedByString:@" · "]];
+    c.detailTextLabel.numberOfLines = 3;
     c.detailTextLabel.font = PAFont(13, UIFontWeightMedium);
     c.detailTextLabel.textColor = PA_MUTED;
     c.accessoryType = sel ? UITableViewCellAccessoryCheckmark : UITableViewCellAccessoryNone;

@@ -5,6 +5,8 @@
 #import "PAAssess.h"
 #import "PATrial.h"
 #import "PATheme.h"
+#import "PAExport.h"
+#import "PAVehicles.h"
 
 // Dong ho toc do + vong tua ve bang CoreGraphics
 @interface PADashGauge : UIView
@@ -66,10 +68,10 @@
 
 @implementation PADashboardViewController {
     PADashGauge *_gauge; PADashRing *_ring; UIView *_loadBar, *_loadFill; UILabel *_verdict; UIStackView *_assess;
-    UISwitch *_collectSw; UILabel *_collectLbl; NSTimer *_t;
+    UIButton *_trackBtn; UILabel *_trackLbl, *_liveLbl; UILabel *_collectLbl; NSTimer *_t;
 }
 
-- (instancetype)init { if ((self=[super init])) { self.title=@"Theo dõi"; self.tabBarItem=[[UITabBarItem alloc] initWithTitle:@"Theo dõi" image:[UIImage systemImageNamed:@"gauge.high"] tag:3]; } return self; }
+- (instancetype)init { if ((self=[super init])) { self.title=@"Theo dõi im lặng"; self.tabBarItem=[[UITabBarItem alloc] initWithTitle:@"Theo dõi" image:[UIImage systemImageNamed:@"waveform.path.ecg.rectangle"] tag:1]; } return self; }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -82,6 +84,14 @@
       [st.topAnchor constraintEqualToAnchor:sc.contentLayoutGuide.topAnchor constant:12],[st.bottomAnchor constraintEqualToAnchor:sc.contentLayoutGuide.bottomAnchor constant:-24],
       [st.leadingAnchor constraintEqualToAnchor:sc.frameLayoutGuide.leadingAnchor constant:16],[st.trailingAnchor constraintEqualToAnchor:sc.frameLayoutGuide.trailingAnchor constant:-16]]];
 
+    // nut BAT DAU / DUNG THEO DOI o dau trang
+    _trackBtn=[UIButton buttonWithType:UIButtonTypeCustom]; _trackBtn.layer.cornerRadius=16; [_trackBtn.heightAnchor constraintEqualToConstant:60].active=YES;
+    _trackBtn.titleLabel.font=PAFont(18,UIFontWeightBold);
+    [_trackBtn addTarget:self action:@selector(toggleTrack) forControlEvents:UIControlEventTouchUpInside];
+    [st addArrangedSubview:_trackBtn];
+    _trackLbl=[UILabel new]; _trackLbl.numberOfLines=0; _trackLbl.font=PAFont(14,UIFontWeightMedium); _trackLbl.textColor=PA_MUTED; _trackLbl.textAlignment=NSTextAlignmentCenter;
+    [st addArrangedSubview:_trackLbl];
+    [st addArrangedSubview:[self cap:@"GIẢ LẬP ĐỘNG CƠ (KHÔNG PHÁT TIẾNG)"]];
     _gauge=[PADashGauge new]; _gauge.backgroundColor=UIColor.clearColor; [_gauge.heightAnchor constraintEqualToConstant:240].active=YES; [st addArrangedSubview:_gauge];
 
     // thanh ga
@@ -98,14 +108,17 @@
     _collectLbl=[UILabel new]; _collectLbl.numberOfLines=0; _collectLbl.font=PAMono(14,UIFontWeightMedium); _collectLbl.textColor=PA_FG; [crow addArrangedSubview:_collectLbl];
     [st addArrangedSubview:cc];
 
-    // cong tac thu thap im lang
-    UIView *tc=[self card];
-    _collectSw=[UISwitch new]; _collectSw.onTintColor=PA_AMBER; _collectSw.on=PAEngine.shared.collectMode; [_collectSw addTarget:self action:@selector(toggleCollect:) forControlEvents:UIControlEventValueChanged];
-    UILabel *tl=[UILabel new]; tl.text=@"Thu thập im lặng (không phát tiếng)"; tl.textColor=PA_FG; tl.font=PAFont(16,UIFontWeightRegular); tl.numberOfLines=0;
-    UIStackView *trow=[[UIStackView alloc] initWithArrangedSubviews:@[tl,_collectSw]]; trow.alignment=UIStackViewAlignmentCenter; trow.spacing=10;
-    trow.translatesAutoresizingMaskIntoConstraints=NO; [tc addSubview:trow];
-    [NSLayoutConstraint activateConstraints:@[[trow.topAnchor constraintEqualToAnchor:tc.topAnchor constant:12],[trow.bottomAnchor constraintEqualToAnchor:tc.bottomAnchor constant:-12],[trow.leadingAnchor constraintEqualToAnchor:tc.leadingAnchor constant:16],[trow.trailingAnchor constraintEqualToAnchor:tc.trailingAnchor constant:-16]]];
-    [st addArrangedSubview:tc];
+    // so lieu truc tiep chuyen dang ghi
+    [st addArrangedSubview:[self cap:@"CHUYẾN ĐANG GHI"]];
+    UIView *lc=[self card]; _liveLbl=[UILabel new]; _liveLbl.numberOfLines=0; _liveLbl.font=PAMono(13,UIFontWeightMedium); _liveLbl.textColor=PA_FG;
+    _liveLbl.translatesAutoresizingMaskIntoConstraints=NO; [lc addSubview:_liveLbl];
+    [NSLayoutConstraint activateConstraints:@[[_liveLbl.topAnchor constraintEqualToAnchor:lc.topAnchor constant:12],[_liveLbl.bottomAnchor constraintEqualToAnchor:lc.bottomAnchor constant:-12],[_liveLbl.leadingAnchor constraintEqualToAnchor:lc.leadingAnchor constant:16],[_liveLbl.trailingAnchor constraintEqualToAnchor:lc.trailingAnchor constant:-16]]];
+    [st addArrangedSubview:lc];
+    UIButton *ex=[UIButton buttonWithType:UIButtonTypeSystem]; [ex setTitle:@"Xuất báo cáo cho Claude" forState:UIControlStateNormal];
+    ex.titleLabel.font=PAFont(16,UIFontWeightSemibold); [ex setTitleColor:PA_AMBER forState:UIControlStateNormal];
+    ex.layer.cornerRadius=14; ex.layer.borderWidth=1; ex.layer.borderColor=PA_AMBER.CGColor; [ex.heightAnchor constraintEqualToConstant:48].active=YES;
+    [ex addTarget:self action:@selector(exportReport:) forControlEvents:UIControlEventTouchUpInside];
+    [st addArrangedSubview:ex];
 
     // danh gia he thong
     [st addArrangedSubview:[self cap:@"ĐÁNH GIÁ HỆ THỐNG"]];
@@ -119,7 +132,13 @@
 - (UILabel *)cap:(NSString *)t { UILabel *l=[UILabel new]; l.text=t; l.font=PAFont(12,UIFontWeightSemibold); l.textColor=PA_MUTED; return l; }
 - (UIView *)card { UIView *v=[UIView new]; v.backgroundColor=PA_CARD; v.layer.cornerRadius=14; return v; }
 
-- (void)toggleCollect:(UISwitch *)s { PAEngine.shared.collectMode=s.on; }
+- (void)toggleTrack {
+    PAEngine *e=PAEngine.shared;
+    if (e.collectMode) [e stopTracking]; else [e startTracking];
+    [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleHeavy] impactOccurred];
+    [self refresh];
+}
+- (void)exportReport:(UIButton *)b { [PAExport presentFrom:self full:[PATrial complete] source:b]; }
 
 - (void)viewWillAppear:(BOOL)a { [super viewWillAppear:a]; _t=[NSTimer scheduledTimerWithTimeInterval:0.15 target:self selector:@selector(refresh) userInfo:nil repeats:YES]; [self refresh]; }
 - (void)viewWillDisappear:(BOOL)a { [super viewWillDisappear:a]; [_t invalidate]; _t=nil; }
@@ -133,7 +152,20 @@
     _loadFill.backgroundColor = sy->load>0.85?PA_RED:PA_AMBER;
     NSInteger days=[PATrial daysDone]; _ring.frac=days/7.0; _ring.big=[NSString stringWithFormat:@"%ld/7",(long)days]; _ring.small=@"ngày"; [_ring setNeedsDisplay];
     _collectLbl.text=[NSString stringWithFormat:@"%.0f km đã ghi\n%ld chuyến · %.0f phút\n%@", [PATrial totalKm],(long)[PATrial totalTrips],[PATrial totalMinutes], [PATrial complete]?@"✓ Đủ 7 ngày — xuất báo cáo":@"đang thu thập…"];
-    _collectSw.on=e.collectMode;
+    BOOL tr=e.collectMode; PAMotion *mo=(PAMotion *)e.motion;
+    [_trackBtn setTitle:(tr?@"■  DỪNG THEO DÕI":@"●  BẮT ĐẦU THEO DÕI") forState:UIControlStateNormal];
+    [_trackBtn setTitleColor:(tr?PA_RED:PA_BG) forState:UIControlStateNormal];
+    _trackBtn.backgroundColor=tr?[PA_RED colorWithAlphaComponent:0.12]:PA_AMBER;
+    _trackBtn.layer.borderWidth=tr?1:0; _trackBtn.layer.borderColor=PA_RED.CGColor;
+    PAVehicle *veh=[PAVehicles byId:e.vehicleId];
+    NSString *who=[NSString stringWithFormat:@"%@%@", veh?veh.title:@"Xe khác", e.testerTag.length?[@" · " stringByAppendingString:e.testerTag]:@""];
+    if (!tr) _trackLbl.text=[NSString stringWithFormat:@"Bấm để tắt pô ảo và chỉ thu thập dữ liệu (im lặng).\nXe: %@", who];
+    else if (mo.recording) _trackLbl.text=[NSString stringWithFormat:@"● ĐANG GHI · %@", who];
+    else _trackLbl.text=[NSString stringWithFormat:@"Đang chờ xe chạy (tự ghi khi > 12 km/h) · GPS %@\nXe: %@", mo.gpsAge<5&&mo.gpsRawKmh>=0?[NSString stringWithFormat:@"%.0f km/h",mo.gpsRawKmh]:@"chờ tín hiệu", who];
+    _trackLbl.textColor=tr&&mo.recording?PA_GREEN:PA_MUTED;
+    _liveLbl.text=mo.recording?[NSString stringWithFormat:@"Thời gian   %.1f phút\nQuãng đường %.2f km\nTốc độ max  %.0f km/h\nGPS ±%.0f m · %.1f lần/s · IMU %.0f Hz\nSố %d · %.0f v/p · ga %.0f%%",
+        mo.tripRows/600.0, mo.tripKm, mo.tripVmax, mo.gpsHAcc, mo.gpsHz, mo.imuHz, sy->gear+1, sy->rpm, sy->load*100]
+        :@"Chưa có chuyến đang ghi";
     _verdict.text=[PAAssess verdictFor:e];
     for (UIView *v in _assess.arrangedSubviews) [v removeFromSuperview];
     for (NSDictionary *it in [PAAssess itemsFor:e]) {

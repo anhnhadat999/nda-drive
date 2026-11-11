@@ -12,16 +12,26 @@
 #import "PASyncViewController.h"
 #import "PATrial.h"
 
-typedef NS_ENUM(NSInteger, PASec) { SecCar, SecSound, SecLearn, SecRun, SecTest, SecStatus, SecUpdate, SecCount };
+#import "PAProfiles.h"
+#import "PAExport.h"
 
 @implementation PASettingsViewController
-{ float _sliderMin; }
+{ float _sliderMin; NSArray<NSNumber *> *_secs; }
+
+- (PASec)sec:(NSInteger)i { return (PASec)_secs[i].integerValue; }
+- (NSInteger)idx:(PASec)x { NSUInteger i = [_secs indexOfObject:@(x)]; return i == NSNotFound ? -1 : (NSInteger)i; }
+- (void)reloadRow:(NSInteger)r sec:(PASec)x { NSInteger i = [self idx:x]; if (i >= 0) [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:r inSection:i]] withRowAnimation:UITableViewRowAnimationNone]; }
 
 - (instancetype)init {
     if ((self = [super initWithStyle:UITableViewStyleInsetGrouped])) {
         self.title = @"Cài đặt";
-        self.tabBarItem = [[UITabBarItem alloc] initWithTitle:@"Cài đặt" image:[UIImage systemImageNamed:@"gearshape.fill"] tag:2];
+        _secs = @[@(SecCar), @(SecSound), @(SecLearn), @(SecRun), @(SecTest), @(SecStatus), @(SecUpdate)];
     }
+    return self;
+}
+
+- (instancetype)initWithSections:(NSArray<NSNumber *> *)secs title:(NSString *)title {
+    if ((self = [self init])) { _secs = secs; self.title = title; }
     return self;
 }
 
@@ -32,44 +42,46 @@ typedef NS_ENUM(NSInteger, PASec) { SecCar, SecSound, SecLearn, SecRun, SecTest,
     self.tableView.keyboardDismissMode = UIScrollViewKeyboardDismissModeOnDrag;
     NSNotificationCenter *nc = NSNotificationCenter.defaultCenter;
     [nc addObserver:self selector:@selector(reloadStatus) name:PAUpdaterDidChangeNotification object:nil];
+    [nc addObserver:self selector:@selector(reloadStatus) name:PAProfilesDidChangeNotification object:nil];
 }
 
 - (void)viewWillAppear:(BOOL)animated { [super viewWillAppear:animated]; [self.tableView reloadData]; }
 
 - (void)reloadStatus {
-    [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:SecUpdate] withRowAnimation:UITableViewRowAnimationNone];
+    NSInteger i = [self idx:SecUpdate];
+    if (i >= 0) [self.tableView reloadSections:[NSIndexSet indexSetWithIndex:i] withRowAnimation:UITableViewRowAnimationNone];
 }
 
 #pragma mark - Du lieu
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return SecCount; }
+- (NSInteger)numberOfSectionsInTableView:(UITableView *)tv { return _secs.count; }
 
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
-    switch (s) {
+    switch ([self sec:s]) {
         case SecCar: return 5;
         case SecSound: return 13;
-        case SecLearn: return 6;
+        case SecLearn: return 7;
         case SecRun: return 2;
         case SecTest: return 2;
         case SecStatus: return 5;
-        case SecUpdate: return 3;
+        case SecUpdate: return 4;
     }
     return 0;
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForHeaderInSection:(NSInteger)s {
-    return @[@"Thông số xe thật", @"Âm thanh", @"Học thích nghi", @"Hoạt động", @"Thử khi đỗ xe", @"Quyền & cảm biến", @"Cập nhật"][s];
+    return @[@"Thông số xe thật", @"Âm thanh", @"Học thích nghi", @"Hoạt động", @"Thử khi đỗ xe", @"Quyền & cảm biến", @"Cập nhật"][[self sec:s]];
 }
 
 - (NSString *)tableView:(UITableView *)tv titleForFooterInSection:(NSInteger)s {
-    switch (s) {
+    switch ([self sec:s]) {
         case SecCar: return @"Nhập đúng thông số xe của bạn để app mô phỏng chân thực nhất. \"Mã lực\" và \"0–100 km/h\" lấy theo công bố của hãng; \"Trọng lượng\" ước chừng cũng được. App dùng để tính độ bốc theo tốc độ: đi nhẹ thì tiếng thư giãn, đạp sâu mới gầm hết công suất — như xe xăng thật.";
         case SecSound: return @"Tiếng pô phát chung với nhạc và chỉ đường. \"Tự tăng âm lượng\" làm tiếng to dần theo tốc độ (tối đa +50% ở 120 km/h) để không bị tiếng gió lấn át. Chỉnh vừa phải để vẫn nghe được còi xe và xe ưu tiên.\n\"Hiệu ứng tiếng từ phía sau\" lọc theo các dải tần mà tai người gắn với âm thanh phía sau (tăng ~1 kHz và ~11 kHz, giảm ~4 kHz), thêm tiếng ù qua thân xe và phản xạ khoang xe. Muốn tiếng phát hẳn từ loa sau, chỉnh Fader về phía sau trong cài đặt âm thanh của xe.\n\"Rung sub gầm ghế\" thêm lớp siêu trầm (dưới 90 Hz) theo nhịp nổ máy và cú \"thụp\" khi lên số. Loa sub của xe tự nhận dải này; tăng mức Bass/Sub trong cài đặt âm thanh xe nếu muốn rung mạnh hơn.\n\"Độ gằn\" làm thân tiếng dày và uy lực hơn, gằn sớm ngay cả khi đi nhẹ. \"Độ dòn\" làm mỗi tiếng nổ sắc, đanh và tách bạch hơn.";
         case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi tự chỉnh độ gằn, độ dòn, điểm sang số cho khớp. Học hoàn toàn trên iPhone.\n\"Thu thập dữ liệu cho Claude\": ghi số liệu cảm biến mỗi chuyến (không có tọa độ, tên hay số điện thoại) để bạn xuất báo cáo gửi Claude, dùng cho việc cải thiện tiếng pô ở các bản sau. Bật liên tục để dữ liệu ngày càng nhiều, tiếng ngày càng đúng xe bạn.\n\"Xe bứt tốc 0–100\": cho app biết xe mạnh cỡ nào. Xe điện mạnh (vd 350 mã lực, ~6 s) thì đi nhẹ tiếng thư giãn, chỉ khi đạp sâu mới gầm hết cỡ — giống xe thật.";
-        case SecRun: return @"Bật mục này để xe tự nổ máy mỗi khi iPhone kết nối Apple CarPlay và tắt máy khi ngắt kết nối.";
+        case SecRun: return @"Bật mục này để pô ảo tự nổ máy khi xe bắt đầu chạy (GPS > 12 km/h) hoặc khi iPhone kết nối CarPlay, và tự tắt khi xe dừng hẳn 3 phút.";
         case SecTest: return @"Chỉ dùng khi xe đang đỗ. Kéo thanh tốc độ để nghe sang số mà không cần chạy xe.";
         case SecStatus: return @"\"Xuất báo cáo cho Claude\" đóng gói nhật ký, bộ đếm sự kiện, chất lượng cảm biến, lỗi thoát app và chuyến đi gần đây thành 1 tệp. Không chứa tọa độ, tên hay số điện thoại. Gửi tệp vào khung chat với Claude để phân tích.\nGắn iPhone cố định trên giá đỡ. Lần đầu lái, tăng tốc và phanh vài lần để máy tự học hướng xe.";
-        case SecUpdate: return @"Thêm nguồn NDA Drive vào Sileo một lần. Các bản sau sẽ tự hiện trong mục cập nhật của Sileo.";
+        case SecUpdate: return @"Thêm nguồn NDA Drive vào Sileo một lần. Các bản sau sẽ tự hiện trong mục cập nhật của Sileo.\n\"Hồ sơ chuẩn theo xe\": bộ tinh chỉnh tiếng riêng cho từng dòng VinFast, được Claude cập nhật từ số liệu các chuyến chạy thử bạn gửi. App tự tải mỗi ngày; chạm để tải và áp dụng ngay.";
     }
     return nil;
 }
@@ -136,7 +148,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
 - (UITableViewCell *)tableView:(UITableView *)tv cellForRowAtIndexPath:(NSIndexPath *)ip {
     PAEngine *e = PAEngine.shared;
     PAUpdater *u = PAUpdater.shared;
-    switch (ip.section) {
+    switch ([self sec:ip.section]) {
         case SecCar:
             if (ip.row == 0) { _sliderMin = 50;  return [self sliderCell:@"Mã lực (HP)" value:e.carHP max:800 tag:20 detail:[NSString stringWithFormat:@"%.0f HP", e.carHP] enabled:YES]; }
             if (ip.row == 1) { _sliderMin = 3;   return [self sliderCell:@"Tăng tốc 0–100 km/h" value:e.car0to100 max:12 tag:8 detail:[NSString stringWithFormat:@"%.1f s", e.car0to100] enabled:YES]; }
@@ -163,6 +175,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 2) return [self switchCell:@"Ghi dữ liệu chuyến đi" icon:@"record.circle" on:e.recordEnabled tag:19];
             if (ip.row == 3) { NSInteger dd=[PATrial daysDone]; return [self infoCell:@"Giai đoạn thử nghiệm 7 ngày" detail:([PATrial complete]?@"ĐỦ — xuất báo cáo":[NSString stringWithFormat:@"ngày %ld/7 · %.0f km", (long)dd, [PATrial totalKm]]) icon:@"calendar.badge.clock" tappable:YES]; }
             if (ip.row == 4) return [self infoCell:@"Lịch sử chuyến đi" detail:nil icon:@"list.bullet.rectangle" tappable:YES];
+            if (ip.row == 6) return [self switchCell:@"Tự áp dụng hồ sơ chuẩn theo xe" icon:@"icloud.and.arrow.down" on:e.autoProfile tag:25];
             PALearn l = ((PAMotion *)e.motion).learned;
             double sp = pal_sport(&l);
             NSString *style = sp < 0.33 ? @"êm" : (sp < 0.66 ? @"vừa" : @"thể thao");
@@ -170,7 +183,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         }
         case SecRun:
             if (ip.row == 0) return [self switchCell:@"Bật pô ảo" icon:@"power" on:e.enabled tag:12];
-            return [self switchCell:@"Tự nổ máy khi kết nối CarPlay" icon:@"car.fill" on:e.onlyWithCarPlay tag:13];
+            return [self switchCell:@"Tự nổ máy khi xe chạy hoặc kết nối CarPlay" icon:@"car.fill" on:e.onlyWithCarPlay tag:13];
         case SecTest:
             if (ip.row == 0) return [self switchCell:@"Giả lập tốc độ" icon:@"speedometer" on:e.testMode tag:14];
             return [self sliderCell:@"Tốc độ giả lập" value:e.testSpeedKmh max:220 tag:3 detail:[NSString stringWithFormat:@"%.0f km/h", e.testSpeedKmh] enabled:e.testMode];
@@ -190,6 +203,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
                 return c;
             }
             if (ip.row == 1) return [self infoCell:@"Thêm nguồn vào Sileo" detail:nil icon:@"plus.app.fill" tappable:YES];
+            if (ip.row == 3) return [self infoCell:@"Hồ sơ chuẩn theo xe (máy chủ)" detail:[PAProfiles.shared statusText] icon:@"car.2.fill" tappable:YES];
             return [self infoCell:@"Phiên bản" detail:u.currentVersion icon:@"info.circle.fill" tappable:NO];
     }
     return [self baseCell];
@@ -197,55 +211,35 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
 
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
-    if (ip.section == SecCar && ip.row == 4) { [self askRealism]; return; }
-    if (ip.section == SecStatus && ip.row == 3) {
+    if ([self sec:ip.section] == SecCar && ip.row == 4) { [self askRealism]; return; }
+    if ([self sec:ip.section] == SecStatus && ip.row == 3) {
         [self.navigationController pushViewController:[PASyncViewController new] animated:YES];
         return;
     }
-    if (ip.section == SecStatus && ip.row == 0) {
+    if ([self sec:ip.section] == SecStatus && ip.row == 0) {
         [PAEngine.shared requestLocationPermission];
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
-    } else if (ip.section == SecSound && ip.row == 9) {
+    } else if ([self sec:ip.section] == SecSound && ip.row == 9) {
         [self.navigationController pushViewController:[PAAcousticViewController new] animated:YES];
-    } else if (ip.section == SecLearn && ip.row == 3) {
+    } else if ([self sec:ip.section] == SecLearn && ip.row == 3) {
         [self trialInfo]; return;
-    } else if (ip.section == SecLearn && ip.row == 4) {
+    } else if ([self sec:ip.section] == SecLearn && ip.row == 4) {
         [self.navigationController pushViewController:[PATripsViewController new] animated:YES];
-    } else if (ip.section == SecLearn && ip.row == 5) {
+    } else if ([self sec:ip.section] == SecLearn && ip.row == 5) {
         [self.navigationController pushViewController:[PALearnViewController new] animated:YES];
-    } else if (ip.section == SecStatus && (ip.row == 2 || ip.row == 4)) {
-        PADiag.shared.fullExport = (ip.row == 4);
-        UIAlertController *wait = [UIAlertController alertControllerWithTitle:@"Đang đóng gói báo cáo…" message:@"Nhật ký, bộ đếm sự kiện, chất lượng cảm biến, lỗi thoát app, tóm tắt chuyến đi." preferredStyle:UIAlertControllerStyleAlert];
-        [self presentViewController:wait animated:YES completion:^{
-            [PADiag.shared buildReport:^(NSURL *zip, NSString *err) {
-                [wait dismissViewControllerAnimated:YES completion:^{
-                    if (!zip) {
-                        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Không tạo được báo cáo" message:err preferredStyle:UIAlertControllerStyleAlert];
-                        [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
-                        [self presentViewController:a animated:YES completion:nil];
-                        return;
-                    }
-                    UIActivityViewController *av = [[UIActivityViewController alloc] initWithActivityItems:@[zip] applicationActivities:nil];
-                    av.popoverPresentationController.sourceView = [tv cellForRowAtIndexPath:ip];
-                    av.completionWithItemsHandler = ^(UIActivityType t, BOOL ok, NSArray *items, NSError *shareErr) {
-                        if (!shareErr) return;
-                        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Chia sẻ bị lỗi"
-                            message:[NSString stringWithFormat:@"Tệp báo cáo vẫn đã được lưu. Mở Filza, vào /var/mobile/Documents/NDADrive-bao-cao để gửi tệp .zip.\n(%@)", shareErr.localizedDescription]
-                            preferredStyle:UIAlertControllerStyleAlert];
-                        [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
-                        [self presentViewController:a animated:YES completion:nil];
-                    };
-                    [self presentViewController:av animated:YES completion:nil];
-                }];
-            }];
-        }];
-    } else if (ip.section == SecStatus && ip.row == 1) {
+    } else if ([self sec:ip.section] == SecStatus && (ip.row == 2 || ip.row == 4)) {
+        [PAExport presentFrom:self full:(ip.row == 4) source:[tv cellForRowAtIndexPath:ip]];
+    } else if ([self sec:ip.section] == SecStatus && ip.row == 1) {
         [self.navigationController pushViewController:[PACalibrationViewController new] animated:YES];
-    } else if (ip.section == SecUpdate && ip.row == 0) {
+    } else if ([self sec:ip.section] == SecUpdate && ip.row == 0) {
         PAUpdater *u = PAUpdater.shared;
         if (u.updateAvailable) [u openUpdateInSileo]; else [u checkNow];
-    } else if (ip.section == SecUpdate && ip.row == 1) {
+    } else if ([self sec:ip.section] == SecUpdate && ip.row == 1) {
         [PAUpdater.shared openAddSourceInSileo];
+    } else if ([self sec:ip.section] == SecUpdate && ip.row == 3) {
+        PAProfiles *pr = PAProfiles.shared;
+        if ([pr tuningFor:PAEngine.shared.vehicleId] && [pr applyFor:PAEngine.shared.vehicleId force:YES]) [self.tableView reloadData];
+        [pr checkNow];
     }
 }
 
@@ -261,17 +255,18 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         case 16: e.autoVolume = s.on; break;
         case 17:
             e.rearEffect = s.on;
-            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:8 inSection:SecSound]] withRowAnimation:UITableViewRowAnimationNone];
+            [self reloadRow:8 sec:SecSound];
             break;
         case 18: e.learnEnabled = s.on; break;
+        case 25: e.autoProfile = s.on; break;
         case 24:
             e.collectMode = s.on;
-            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:3 inSection:SecLearn]] withRowAnimation:UITableViewRowAnimationNone];
+            [self reloadRow:3 sec:SecLearn];
             break;
         case 19: e.recordEnabled = s.on; break;
         case 14:
             e.testMode = s.on;
-            [self.tableView reloadRowsAtIndexPaths:@[[NSIndexPath indexPathForRow:1 inSection:SecTest]] withRowAnimation:UITableViewRowAnimationNone];
+            [self reloadRow:1 sec:SecTest];
             break;
     }
 }

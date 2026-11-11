@@ -6,6 +6,8 @@
 #import "PALog.h"
 #import "PADiag.h"
 #import "PAAcousticMeasure.h"
+#import "PAVehicles.h"
+#import "PAProfiles.h"
 
 NSString *const PAEngineDidUpdateNotification = @"PAEngineDidUpdateNotification";
 
@@ -45,7 +47,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
         [d registerDefaults:@{ @"enabled": @YES, @"onlyWithCarPlay": @YES, @"preset": @"gt3",
                                @"volume": @0.7, @"tone": @0.5, @"pops": @YES, @"shiftPop": @YES,
-                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7, @"subAmt": @0.6, @"growl": @0.6, @"crisp": @0.6, @"car0to100": @5.8, @"carHP": @349.0, @"carWeight": @1900.0, @"interior": @0.4, @"mech": @0.3, @"collectMode": @NO, @"acousticCorr": @YES, @"latComp": @YES }];
+                               @"autoVolume": @YES, @"speedTrim": @0.0, @"responseMode": @1, @"rearFx": @YES, @"learn": @YES, @"record": @YES, @"rearAmt": @0.7, @"subAmt": @0.6, @"growl": @0.6, @"crisp": @0.6, @"car0to100": @5.8, @"carHP": @349.0, @"carWeight": @1900.0, @"interior": @0.4, @"mech": @0.3, @"collectMode": @NO, @"acousticCorr": @YES, @"latComp": @YES, @"vehicle": @"vf7-plus", @"autoProfile": @YES, @"tester": @"" }];
         _enabled = [d boolForKey:@"enabled"];
         _onlyWithCarPlay = [d boolForKey:@"onlyWithCarPlay"];
         _presetKey = [d stringForKey:@"preset"] ?: @"gt3";
@@ -71,6 +73,10 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _collectMode = [d boolForKey:@"collectMode"];
         _latencyComp = [d boolForKey:@"latComp"];
         _acousticCorrection = [d boolForKey:@"acousticCorr"];
+        _vehicleId = [d stringForKey:@"vehicle"] ?: @"vf7-plus";
+        _autoProfile = [d boolForKey:@"autoProfile"];
+        _testerTag = [d stringForKey:@"tester"] ?: @"";
+        _headingDeg = -1;
         [self applySettings];
     }
     return self;
@@ -361,6 +367,51 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 #pragma mark - Quyet dinh no may / tat may
 
 // Nut No may / Tat may luon co hieu luc. "Tat may" giu trang thai tat cho den lan ket noi CarPlay ke tiep.
+- (void)setVehicleId:(NSString *)v { _vehicleId = [v copy]; [self save:v key:@"vehicle"]; }
+- (void)setAutoProfile:(BOOL)v { _autoProfile = v; [self save:@(v) key:@"autoProfile"]; if (v) [PAProfiles.shared applyFor:_vehicleId force:NO]; }
+- (void)setTesterTag:(NSString *)v { _testerTag = [v copy] ?: @""; [self save:_testerTag key:@"tester"]; }
+
+// Chon xe: ap thong so co dinh cua hang (ma luc, trong luong, 0-100)
+- (void)selectVehicle:(NSString *)vid {
+    PAVehicle *v = [PAVehicles byId:vid];
+    self.vehicleId = vid;
+    if (v) {
+        _carHP = v.hp; _carWeight = v.weightKg; _car0to100 = v.zeroTo100;
+        [self save:@(_carHP) key:@"carHP"]; [self save:@(_carWeight) key:@"carWeight"]; [self save:@(_car0to100) key:@"car0to100"];
+        [self applySettings];
+        PALog(@"Chon xe %@: %.0f HP, %.0f kg, 0-100 %.1f s", vid, v.hp, v.weightKg, v.zeroTo100);
+    }
+    [PADiag.shared bump:@"vehicle_select"];
+    if (_autoProfile) [PAProfiles.shared applyFor:vid force:NO];
+    [NSNotificationCenter.defaultCenter postNotificationName:PAEngineDidUpdateNotification object:self];
+}
+
+// Tab No may: tat thu thap im lang, bat po ao va no may ngay
+- (void)startDriveMode {
+    if (!_enabled) { _enabled = YES; [self save:@YES key:@"enabled"]; }
+    if (_collectMode) self.collectMode = NO;
+    [PADiag.shared bump:@"mode_drive"];
+    [self manualStart];
+}
+- (void)stopDriveMode { [self manualStop]; }
+
+// Tab Theo doi: tat tieng, khong no may tay; GPS tu phat hien xe chay va ghi day du
+- (void)startTracking {
+    _manualRun = NO;
+    if (_enabled) { _enabled = NO; [self save:@NO key:@"enabled"]; }
+    if (!_recordEnabled) { _recordEnabled = YES; [self save:@YES key:@"record"]; }
+    _userOff = NO;
+    [PADiag.shared bump:@"mode_tracking"];
+    PALog(@"Bat dau theo doi im lang");
+    self.collectMode = YES;
+}
+- (void)stopTracking {
+    PALog(@"Dung theo doi im lang");
+    _motionRun = NO;
+    self.collectMode = NO;
+    [self evaluate];
+}
+
 - (void)manualStart { _userOff = NO; _manualRun = YES; [self evaluate]; }
 - (void)manualStop { _userOff = YES; _manualRun = NO; [self evaluate]; }
 
@@ -370,7 +421,9 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     if (!car && _lastCarPlay) { _manualRun = NO; [PADiag.shared bump:@"carplay_disconnect"]; }        // vua rut CarPlay: tat may
     _lastCarPlay = car;
     // May "no" (ghi chuyen di + tinh vat ly) khi: bam tay, HOAC ket noi CarPlay (neu bat tu no), HOAC tu phat hien xe dang chay
-    BOOL shouldRun = self.pipelineOn && !_userOff && (_manualRun || (car && _onlyWithCarPlay) || _motionRun);
+    // Tu dong (CarPlay / phat hien xe chay) chi khi dang Theo doi im lang, hoac khi bat "Tu no may" o tab No may
+    BOOL autoOK = _collectMode || _onlyWithCarPlay;
+    BOOL shouldRun = self.pipelineOn && !_userOff && (_manualRun || (autoOK && (car || _motionRun)));
     _synth.mute = _collectMode || !_enabled;   // tat po ao hoac dang im lang -> khong phat tieng
     if (shouldRun && !_engineOn) {
         _engineOn = YES;
@@ -418,6 +471,12 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
 - (void)tick {
     _tickCount++;
     [self detectDriving];
+    if (_tickCount % 25 == 1) {   // 5 giay: thong tin phu cho thong ke chuyen
+        UIDevice *dv = UIDevice.currentDevice; dv.batteryMonitoringEnabled = YES;
+        _motion.battLevel = dv.batteryLevel;
+        _motion.battCharging = dv.batteryState == UIDeviceBatteryStateCharging || dv.batteryState == UIDeviceBatteryStateFull;
+        _motion.tripTag = [NSString stringWithFormat:@"%@|%@|%@", _vehicleId ?: @"", _testerTag.length ? _testerTag : @"chu-xe", _collectMode ? @"theo-doi" : @"po-ao"];
+    }
     if (_testMode) {
         double v = _testSpeedKmh;
         _synth.gpsAccel = (v - _lastTestSpeed) / 0.2 * 0.5 + _synth.gpsAccel * 0.5;
@@ -502,6 +561,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         _lm.showsBackgroundLocationIndicator = YES;    // chi bao vi tri nen: iOS uu tien giu GPS
         [_lm startUpdatingLocation];
         [_lm startMonitoringSignificantLocationChanges]; // lop du phong
+        if (CLLocationManager.headingAvailable) { _lm.headingFilter = 2; [_lm startUpdatingHeading]; }
         _locating = YES;
         PALog(@"GPS: bat (quyen %d)", (int)st);
     }
@@ -516,6 +576,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     if (!_locating) return;
     [_lm stopUpdatingLocation];
     [_lm stopMonitoringSignificantLocationChanges];
+    [_lm stopUpdatingHeading];
     _locating = NO;
     PALog(@"GPS: tat");
     _gpsSpeedKmh = -1;
@@ -535,9 +596,16 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     [NSNotificationCenter.defaultCenter postNotificationName:PAEngineDidUpdateNotification object:self];
 }
 
+- (void)locationManager:(CLLocationManager *)manager didUpdateHeading:(CLHeading *)h {
+    if (_gpsSpeedKmh > 8) return;   // dang chay: dung huong GPS (chinh xac hon la ban trong xe)
+    double v = h.trueHeading >= 0 ? h.trueHeading : h.magneticHeading;
+    if (v >= 0) _headingDeg = v;
+}
+
 - (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray<CLLocation *> *)locations {
     for (CLLocation *loc in locations) [_motion addLocation:loc];   // dua vao bo hop nhat cam bien
     CLLocation *loc = locations.lastObject;
+    if (loc && loc.course >= 0 && loc.speed * 3.6 > 8) _headingDeg = loc.course;
     if (loc && loc.speed >= 0) _gpsSpeedKmh = loc.speed * 3.6;
 }
 

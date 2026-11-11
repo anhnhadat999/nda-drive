@@ -2,7 +2,8 @@
 #import "PARootViewController.h"
 #import "PACarsViewController.h"
 #import "PADashboardViewController.h"
-#import "PASettingsViewController.h"
+#import "PASettingsMenuViewController.h"
+#import "PAProfiles.h"
 #import "PAEngine.h"
 #import "PAUpdater.h"
 #import "PATheme.h"
@@ -45,13 +46,14 @@ static UINavigationController *nav(UIViewController *vc) {
     [PAEngine.shared boot];
     [self applyAppearance];
     UITabBarController *tb = [UITabBarController new];
-    tb.viewControllers = @[ nav([PARootViewController new]), nav([PADashboardViewController new]), nav([PACarsViewController new]), nav([PASettingsViewController new]) ];
+    tb.viewControllers = @[ nav([PARootViewController new]), nav([PADashboardViewController new]), nav([PASettingsMenuViewController new]) ];
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     self.window.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
     self.window.tintColor = PA_AMBER;
     self.window.rootViewController = tb;
     [self.window makeKeyAndVisible];
     [PAUpdater.shared checkNow];
+    [PAProfiles.shared checkNow];
     return YES;
 }
 
@@ -59,6 +61,8 @@ static UINavigationController *nav(UIViewController *vc) {
     // Mo lai app: kiem tra ban moi neu lan kiem tra truoc da hon 1 gio
     NSDate *last = PAUpdater.shared.lastCheck;
     if (!last || -last.timeIntervalSinceNow > 3600) [PAUpdater.shared checkNow];
+    NSDate *lp = PAProfiles.shared.lastCheck;
+    if (!lp || -lp.timeIntervalSinceNow > 6 * 3600) [PAProfiles.shared checkNow];
 }
 
 @end

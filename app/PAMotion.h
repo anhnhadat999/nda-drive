@@ -22,7 +22,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) double calProgress, mountAngleDeg, gpsAccuracy, gpsRawKmh;
 @property (nonatomic, readonly) double gpsHAcc;          // do chinh xac vi tri (m)
 @property (nonatomic, readonly) BOOL recording;          // dang ghi chuyen di
-@property (nonatomic, readonly) long tripRows;           // so dong da ghi chuyen hien tai
+@property (nonatomic, readonly) long tripRows;
+@property (nonatomic, readonly) double tripKm, tripVmax;   // chuyen dang ghi           // so dong da ghi chuyen hien tai
 @property (atomic) double speedTrim;          // hieu chinh toc do: -0.10..+0.10 (khop dong ho xe)
 @property (atomic) double responseScale;      // 0.6 on dinh, 1 can bang, 1.6 nhanh
 - (void)resetCalibration;
@@ -43,6 +44,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) double gpsNewInterval;    // khoang cach trung binh giua 2 ban tin GPS MOI (s)
 @property (nonatomic, readonly) BOOL calByTurn;           // da hoc huong xe nho vao cua
 @property (nonatomic, readonly) double aLongNow;          // gia toc doc xe tuc thoi (m/s^2)
+@property (atomic) double battLevel;                     // pin 0..1 (-1 = khong ro), cap nhat tu luong chinh
+@property (atomic) int battCharging;                      // 1 dang sac
+@property (atomic, copy) NSString *tripTag;              // "xe|nguoi lai|che do" ghi vao tom tat chuyen
 @property (atomic) double audioLatencyMs;                 // do tre loa (ghi vao CSV)   // ty le ban tin GPS lap lai so cu
 @property (nonatomic, readonly) BOOL gpsOnlyFallback;   // dang dung thang GPS vi cam bien dung
 // So lieu tho cho o thong so (cap nhat ~5 lan/giay tren luong chinh)
