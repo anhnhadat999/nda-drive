@@ -103,7 +103,7 @@ nav button.act{color:var(--amb)}
 <script>
 "use strict";
 const WASM_B64="__WASM_B64__";
-const APP_VER="1.8.1-web";
+const APP_VER="1.8.3-web";
 const $=id=>document.getElementById(id);
 const toast=m=>{const t=$('toast');t.textContent=m;t.style.opacity=1;clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.opacity=0,2600)};
 
@@ -164,10 +164,23 @@ const ST=()=>new Float64Array(X.memory.buffer,X.nda_state(),24);
 
 // ---------------- Am thanh ----------------
 let ctx=null,node=null,lastAudio=0;
+// iPhone: Safari tat am thanh web khi gat nut Im lang -> khai bao "phat nhac" (iOS 17+) + phat tep im lang lap lai (iOS cu)
+let silentEl=null;
+function silentWavURL(){const sr=8000,n=sr/2,b=new ArrayBuffer(44+n*2),v=new DataView(b);const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+  w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+  return URL.createObjectURL(new Blob([b],{type:'audio/wav'}))}
+function unlockAudio(){
+  try{if(navigator.audioSession)navigator.audioSession.type='playback'}catch(e){}
+  try{if(!silentEl){silentEl=new Audio(silentWavURL());silentEl.loop=true;silentEl.setAttribute('playsinline','')}silentEl.play().catch(()=>{})}catch(e){}
+  if(ctx){try{const b=ctx.createBuffer(1,1,22050),src=ctx.createBufferSource();src.buffer=b;src.connect(ctx.destination);src.start(0)}catch(e){}ctx.resume&&ctx.resume()}
+}
 function startAudio(){
-  if(ctx){ctx.resume();return}
+  if(ctx){unlockAudio();return}
   const AC=window.AudioContext||window.webkitAudioContext;if(!AC){toast('Trình duyệt không hỗ trợ âm thanh');return}
-  ctx=new AC({latencyHint:'interactive'});node=ctx.createScriptProcessor(2048,0,1);
+  try{ctx=new AC({latencyHint:'interactive'})}catch(e){ctx=new AC()}
+  ctx.onstatechange=()=>render();
+  unlockAudio();
+  node=ctx.createScriptProcessor(2048,0,1);
   node.onaudioprocess=e=>{const out=e.outputBuffer.getChannelData(0);let o=0;while(o<out.length){const n=Math.min(4096,out.length-o);const p=X.nda_render(n,ctx.sampleRate);out.set(new Float32Array(X.memory.buffer,p,n),o);o+=n}lastAudio=performance.now()};
   node.connect(ctx.destination);
 }
@@ -188,7 +201,9 @@ async function startSensors(){
   keepAwake();
 }
 async function keepAwake(){try{if('wakeLock' in navigator&&!wake){wake=await navigator.wakeLock.request('screen');wake.addEventListener('release',()=>wake=null)}}catch(e){}}
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(engineOn||tracking))keepAwake()});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&(engineOn||tracking)){keepAwake();if(ctx&&driveMode)unlockAudio()}});
+// cham bat ky dau: neu am thanh bi trinh duyet tam dung thi bat lai
+document.addEventListener('pointerdown',()=>{if(ctx&&ctx.state!=='running'&&driveMode)unlockAudio()},true);
 let lastImuT=0;
 function onMotion(e){
   if(!X)return;const t=e.timeStamp/1000;if(t-lastImuT<0.008)return;lastImuT=t;
@@ -233,7 +248,7 @@ function evaluate(){
   else if(!should&&engineOn){engineOn=false;X.nda_engine_stop();stopTrip();bump('engine_stop')}
   render();
 }
-async function startDrive(){await startSensors();startAudio();tracking=false;driveMode=true;manual=true;userOff=false;applyParams();bump('mode_drive');evaluate()}
+async function startDrive(){startAudio();await startSensors();tracking=false;driveMode=true;manual=true;userOff=false;applyParams();bump('mode_drive');evaluate()}
 function stopDrive(){manual=false;userOff=true;evaluate()}
 async function startTracking(){await startSensors();tracking=true;driveMode=false;manual=false;userOff=false;applyParams();bump('mode_tracking');evaluate();toast('Đang theo dõi: tự ghi khi xe chạy > 12 km/h')}
 function stopTracking(){tracking=false;motionRun=false;evaluate()}
@@ -341,7 +356,7 @@ $('exportBtn').onclick=()=>exportReport(P.days.length>=7);
 function render(){
   const v=veh(),pr=PRESETS[presetIdx()];
   $('startBtn').classList.toggle('on',engineOn&&driveMode);
-  $('modeLbl').textContent=tracking?'Đang ở chế độ Theo dõi im lặng — bấm START để chuyển sang pô ảo':(engineOn?'Máy đang nổ · bấm để tắt máy':'Bấm để khởi động hệ thống và nổ máy');
+  $('modeLbl').textContent=(driveMode&&ctx&&ctx.state!=='running')?'⚠ Âm thanh đang bị trình duyệt chặn — chạm vào màn hình để bật':tracking?'Đang ở chế độ Theo dõi im lặng — bấm START để chuyển sang pô ảo':(engineOn?'Máy đang nổ · bấm để tắt máy':'Bấm để khởi động hệ thống và nổ máy');
   $('carName').textContent=v?'VinFast '+vTitle(v):'Xe khác';
   $('carSub').textContent=pr?`Tiếng: ${pr.name} · ${pr.cyl} xi-lanh${pr.turbo?' turbo':''} · ${P.hp} mã lực · 0–100 ${P.t100} s`:'';
   $('trackBtn').textContent=tracking?'■  DỪNG THEO DÕI':'●  BẮT ĐẦU THEO DÕI';$('trackBtn').classList.toggle('stop',tracking);
