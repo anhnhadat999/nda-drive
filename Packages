@@ -1,0 +1,16 @@
+Package: com.ndarealty.ndadrive
+Version: 1.8.2
+Architecture: iphoneos-arm64
+Maintainer: NDA Realty
+Installed-Size: 660
+Depends: mobilesubstrate, firmware (>= 15.0)
+Filename: debs/com.ndarealty.ndadrive_1.8.2_iphoneos-arm64.deb
+Size: 142492
+MD5sum: 99adfeb11627cd939f10d31f0d039823
+SHA1: 983925e58b65b369ae04a76403209a0821b293a8
+SHA256: e3d406c0693dd2cece77cbb56e47fe4d462c2815042783decf1afab3ce68c284
+Section: Tweaks
+Description: Pô ảo cho xe: giả lập tiếng pô xe thể thao (Porsche và các hãng nổi tiếng) theo tốc độ GPS, tự nổ máy khi kết nối Apple CarPlay.
+Author: NDA Realty
+Name: NDA Drive
+
