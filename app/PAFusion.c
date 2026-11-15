@@ -302,6 +302,10 @@ void paf_gps(PAFusion *f, double speed, double speedAcc, double course, double t
     heal(f);
 }
 
+int paf_speed_usable(const PAFusion *f) {
+    return f->gpsOk || f->calibrated || f->stationary || (f->hasGps && f->t - f->lastFixWall < 60);
+}
+
 void paf_baro(PAFusion *f, double relAltitude, double t) {
     if (!isfinite(relAltitude) || !isfinite(t)) return;
     if (!f->hasBaro) { f->baroAlt = relAltitude; f->baroDist = f->dist; f->baroT = t; f->hasBaro = 1; return; }

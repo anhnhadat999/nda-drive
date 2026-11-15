@@ -506,7 +506,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     }
     if (_lowPower) return;
     BOOL fresh = _motion.gpsAge < 5 && _motion.gpsRawKmh >= 0;
-    if ((fresh && _motion.gpsRawKmh < 4) || _motion.gpsAge > 30) _idleT += 0.2; else _idleT = 0;
+    if (fresh && _motion.gpsRawKmh < 4) _idleT += 0.2; else _idleT = 0;   // chi tinh khi GPS con bao xe dung (GPS treo -> de canh gac khoi dong lai)
     if (_idleT >= 120) [self enterLowPower];
 }
 
@@ -515,7 +515,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     if (!self.pipelineOn || _testMode || _lowPower) return;
     double v = (_motion.gpsAge < 5 && _motion.gpsRawKmh >= 0) ? _motion.gpsRawKmh : _motion.speedKmh;
     if (v > 12) { _movingT += 0.2; _stillT = 0; }
-    else { _movingT = fmax(0, _movingT - 0.4); if (v < 4) _stillT += 0.2; }
+    else { _movingT = fmax(0, _movingT - 0.4); if (v < 4) _stillT += 0.2; else _stillT = 0; }   // dung LIEN TUC 3 phut moi ket thuc (ket xe bo cham khong bi cat chuyen)
     if (!_motionRun && _movingT >= 4) {
         _motionRun = YES; _userOff = NO;
         PALog(@"Phat hien xe chay (%.0f km/h) -> no may", v);
@@ -570,7 +570,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     }
     if (_locating) {
         double now = NSProcessInfo.processInfo.systemUptime;
-        if (!_lowPower && _motion.gpsAge > 6 && now - _lastGpsKick > 10) {
+        if ((_lowPower ? (_motion.gpsAge > 300 && now - _lastGpsKick > 300) : (_motion.gpsAge > 6 && now - _lastGpsKick > 10))) {   // cho tiet kiem pin: van kiem tra GPS 5 phut/lan
             _lastGpsKick = now;
             PALog(@"GPS im lang %.0f s -> khoi dong lai", _motion.gpsAge);
             [PADiag.shared bump:@"gps_restart"];
@@ -674,7 +674,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     if (_lowPower && loc && loc.horizontalAccuracy > 0) {
         double dist = _idleAnchor ? [loc distanceFromLocation:_idleAnchor] : 0;
         if (loc.speed * 3.6 > 8) [self exitLowPower:[NSString stringWithFormat:@"xe chay %.0f km/h", loc.speed * 3.6]];
-        else if (_idleAnchor && dist > fmax(80, 1.5 * loc.horizontalAccuracy)) [self exitLowPower:[NSString stringWithFormat:@"xe di chuyen %.0f m", dist]];
+        else if (_idleAnchor && dist > fmax(80, 1.5 * (loc.horizontalAccuracy + fmax(0, _idleAnchor.horizontalAccuracy)))) [self exitLowPower:[NSString stringWithFormat:@"xe di chuyen %.0f m", dist]];
         else if (!_idleAnchor && loc.horizontalAccuracy < 150) _idleAnchor = loc;
     }
 }

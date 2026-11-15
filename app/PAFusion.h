@@ -78,6 +78,9 @@ void paf_imu(PAFusion *f, const double userAcc[3], const double gravity[3], cons
 void paf_gps(PAFusion *f, double speed, double speedAcc, double course, double tFix);
 
 // Do cao tuong doi tu ap ke (m)
+// Toc do uoc luong con dung duoc cho dong co gia lap: co GPS, da hoc huong may, dung yen,
+// HOAC vua mat GPS < 60 s (ham chui, cau vuot) -> giu toc do cu thay vi tut ve 0
+int paf_speed_usable(const PAFusion *f);
 void paf_baro(PAFusion *f, double relAltitude, double t);
 
 #ifdef __cplusplus

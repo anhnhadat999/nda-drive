@@ -330,7 +330,7 @@ static NSArray *arr(const double *a, int n) { NSMutableArray *r = [NSMutableArra
     double trim = 1.0 + _speedTrim;
 
     if (_feedSynth) {
-        _synth->gpsSpeed = _f.gpsOk || _f.calibrated || _f.stationary ? _f.v * 3.6 * trim : -1;
+        _synth->gpsSpeed = paf_speed_usable(&_f) ? _f.v * 3.6 * trim : -1;
         _synth->gpsAccel = _f.a * 3.6 * trim;
         _synth->grade = _f.grade;
         // CHE DO IM LANG: khong co am thanh de buoc vat ly -> tu buoc o day ~10 Hz de van co vong tua/so/tai ghi lai

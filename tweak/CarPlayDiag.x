@@ -29,6 +29,7 @@ static dispatch_queue_t gQ;
 static os_log_t gLog;
 static char gPath[512];
 static int gFd = -1;
+static int gOpenFailed = 0;   // hop cat (sandbox) khong cho ghi tep -> chi dung os_log, khong thu lai
 static uint32_t gSeen[512]; static int gSeenI = 0;
 static __thread int tGuard = 0;          // chong de quy trong cung luong
 
@@ -44,6 +45,7 @@ static void openLog(void) {
     const char *dirs[] = { "/var/jb/var/mobile/Library/NDADrive/carplay-diag", "/var/mobile/Library/Logs/NDADrive-carplay", "/private/var/tmp/ndadrive-carplay" };
     mkdir("/var/jb/var/mobile/Library/NDADrive", 0777);
     for (int i = 0; i < 3 && gFd < 0; i++) gFd = tryOpen(dirs[i]);
+    if (gFd < 0) gOpenFailed = 1;
 }
 static uint32_t fnv(const char *s, size_t n) { uint32_t h = 2166136261u; for (size_t i = 0; i < n; i++) { h ^= (unsigned char)s[i]; h *= 16777619u; } return h; }
 
@@ -56,7 +58,7 @@ static void emit(const char *tag, const char *text) {
         for (int i = 0; i < 512; i++) if (gSeen[i] == h) { free(copy); free(tg); return; }   // trung lap
         gSeen[gSeenI] = h; gSeenI = (gSeenI + 1) % 512;
         os_log(gLog, "[%{public}s] %{public}s", tg, copy);
-        if (gFd < 0) openLog();
+        if (gFd < 0 && !gOpenFailed) openLog();
         if (gFd >= 0) {
             struct stat st;
             if (fstat(gFd, &st) == 0 && st.st_size > MAX_FILE) {   // xoay vong tep
@@ -76,7 +78,7 @@ typedef struct { char *b; size_t n, cap; int full; } Buf;
 static void put(Buf *o, const char *s) {
     if (o->full) return;
     size_t l = strlen(s);
-    if (o->n + l + 1 >= MAX_ENTRY) { o->full = 1; return; }
+    if (o->n + l + 1 >= MAX_ENTRY - 32) { o->full = 1; return; }   // de cho cho dau hieu cat bot
     if (o->n + l + 1 > o->cap) { o->cap = (o->n + l + 1) * 2; o->b = realloc(o->b, o->cap); }
     memcpy(o->b + o->n, s, l); o->n += l; o->b[o->n] = 0;
 }
@@ -87,7 +89,7 @@ static int sensitiveKey(const char *k) {
     const char *exact[] = { "pk", "pi", "pin", "sid", "mac", "id", "ip", "pd", "ek", "sk", NULL };
     for (int j = 0; exact[j]; j++) if (!strcmp(l, exact[j])) return 1;
     const char *sub[] = { "deviceid", "macaddress", "btaddress", "bluetoothaddress", "serial", "publickey", "pairing", "password", "secret",
-                          "token", "uuid", "identifier", "nonce", "salt", "signature", "certificate", "name", "phone", "address", "ssid", "psk", "passphrase", NULL };
+                          "token", "uuid", "identifier", "nonce", "salt", "signature", "certificate", "name", "phone", "address", "addr", "mac", "ssid", "psk", "passphrase", NULL };
     for (int j = 0; sub[j]; j++) if (strstr(l, sub[j])) return 1;
     return 0;
 }
@@ -95,6 +97,7 @@ static int sensitiveValue(const char *v) {
     size_t n = strlen(v); int colons = 0, hexb = 0;
     for (size_t i = 0; i < n; i++) { if (v[i] == ':') colons++; if (isxdigit((unsigned char)v[i]) || v[i] == '-' || v[i] == '+' || v[i] == '/' || v[i] == '=') hexb++; }
     if (colons >= 5 && n <= 24) return 1;                // dia chi MAC
+    if (n == 12 && hexb == 12) return 1;                 // MAC khong co dau :
     if (n >= 24 && hexb * 10 >= (int)n * 9) return 1;     // chuoi hex/base64 dai (khoa, ma)
     return 0;
 }
@@ -166,7 +169,7 @@ static int interesting(CFTypeRef v, int depth) {
 static void logPlist(const char *tag, CFTypeRef pl) {
     if (!pl || !interesting(pl, 0)) return;
     Buf o = {0}; ser(pl, &o, 0);
-    if (o.b) { if (o.full) put(&o, " …(cat bot)"); emit(tag, o.b); free(o.b); }
+    if (o.b) { if (o.full) { o.full = 0; put(&o, " …(cat bot)"); } emit(tag, o.b); free(o.b); }
 }
 
 // ---------------- dinh dang am thanh ----------------
@@ -203,7 +206,8 @@ static void logConverter(const char *kind, const AudioStreamBasicDescription *in
     if (gIsAudioDaemon && in && out && in->mFormatID == kAudioFormatLinearPCM && out->mFormatID == kAudioFormatLinearPCM) return;   // bo doi PCM->PCM o mediaserverd (rat nhieu)
     char a[256], b[256], line[700];
     asbd(in, a, sizeof a); asbd(out, b, sizeof b);
-    snprintf(line, sizeof line, "%s %p ket qua %d\n  vao: %s\n  ra : %s", kind, ref, (int)st, a, b);
+    snprintf(line, sizeof line, "%s ket qua %d\n  vao: %s\n  ra : %s", kind, (int)st, a, b);   // khong ghi con tro -> bo trung lap duoc
+    (void)ref;
     emit("AUDIO CONVERTER", line);
 }
 
@@ -243,7 +247,7 @@ static OSStatus h_ACSet(AudioConverterRef ref, AudioConverterPropertyID pid, UIn
     if (!tGuard && data && size >= 4 && (pid == kAudioConverterEncodeBitRate || pid == kAudioConverterCodecQuality || pid == kAudioConverterSampleRateConverterQuality)) {
         tGuard = 1;
         char line[160];
-        snprintf(line, sizeof line, "%p %s = %u (ket qua %d)", ref,
+        snprintf(line, sizeof line, "%s = %u (ket qua %d)",
                  pid == kAudioConverterEncodeBitRate ? "toc do bit (bit/giay)" : pid == kAudioConverterCodecQuality ? "chat luong ma hoa (0-127)" : "chat luong doi tan so",
                  *(const UInt32 *)data, (int)st);
         emit("AUDIO CONVERTER THUOC TINH", line);
@@ -251,6 +255,20 @@ static OSStatus h_ACSet(AudioConverterRef ref, AudioConverterPropertyID pid, UIn
     }
     return st;
 }
+
+%group NSPL
+%hook NSPropertyListSerialization
++ (id)propertyListWithData:(NSData *)data options:(NSPropertyListReadOptions)opt format:(NSPropertyListFormat *)fmt error:(NSError **)err {
+    id r = %orig;
+    if (r && !tGuard) { tGuard = 1; @try { logPlist("PLIST NHAN (Foundation)", (__bridge CFTypeRef)r); } @catch (id e) {} tGuard = 0; }
+    return r;
+}
++ (NSData *)dataWithPropertyList:(id)pl format:(NSPropertyListFormat)fmt options:(NSPropertyListWriteOptions)opt error:(NSError **)err {
+    if (pl && !tGuard) { tGuard = 1; @try { logPlist("PLIST GUI (Foundation)", (__bridge CFTypeRef)pl); } @catch (id e) {} tGuard = 0; }
+    return %orig;
+}
+%end
+%end
 
 %ctor {
     @autoreleasepool {
@@ -264,6 +282,7 @@ static OSStatus h_ACSet(AudioConverterRef ref, AudioConverterPropertyID pid, UIn
         char line[160]; snprintf(line, sizeof line, "nap vao %s (pid %d), %s", gProc, getpid(), ver);
         emit("KHOI DONG", line);
         if (!gIsAudioDaemon) {   // thong diep CarPlay chi o airplayd / carkitd
+            %init(NSPL);
             MSHookFunction((void *)CFPropertyListCreateWithData, (void *)h_CreateWithData, (void **)&o_CreateWithData);
             MSHookFunction((void *)CFPropertyListCreateData, (void *)h_CreateData, (void **)&o_CreateData);
         }

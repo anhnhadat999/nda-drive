@@ -50,7 +50,7 @@ EXPORT void nda_imu(double ax, double ay, double az, double gx, double gy, doubl
     static int n = 0; if (++n % 100 == 0) push_learn();
     if (!testMode) {
         double tr = 1.0 + speedTrim;
-        S.gpsSpeed = (F.gpsOk || F.calibrated || F.stationary) ? F.v * 3.6 * tr : -1;
+        S.gpsSpeed = paf_speed_usable(&F) ? F.v * 3.6 * tr : -1;
         S.gpsAccel = F.a * 3.6 * tr; S.grade = F.grade; S.gpsAge = 0;
     }
 }

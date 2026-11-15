@@ -54,7 +54,7 @@ JNIEXPORT void JNICALL FN(imu)(JNIEnv *e, jclass c, jdouble ax, jdouble ay, jdou
     static int n = 0; if (++n % 100 == 0) push_learn();
     if (!testMode) {
         double trim = 1.0 + speedTrim;
-        S.gpsSpeed = (F.gpsOk || F.calibrated || F.stationary) ? F.v * 3.6 * trim : -1;
+        S.gpsSpeed = paf_speed_usable(&F) ? F.v * 3.6 * trim : -1;
         S.gpsAccel = F.a * 3.6 * trim;
         S.grade = F.grade;
         S.gpsAge = 0;
