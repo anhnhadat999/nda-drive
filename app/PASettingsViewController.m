@@ -63,7 +63,7 @@
         case SecLearn: return 7;
         case SecRun: return 2;
         case SecTest: return 2;
-        case SecStatus: return 5;
+        case SecStatus: return 6;
         case SecUpdate: return 4;
     }
     return 0;
@@ -80,7 +80,7 @@
         case SecLearn: return @"Ứng dụng tự học độ bốc thật của xe và cách bạn lái qua từng chuyến đi, rồi tự chỉnh độ gằn, độ dòn, điểm sang số cho khớp. Học hoàn toàn trên iPhone.\n\"Thu thập dữ liệu cho Claude\": ghi số liệu cảm biến mỗi chuyến (không có tọa độ, tên hay số điện thoại) để bạn xuất báo cáo gửi Claude, dùng cho việc cải thiện tiếng pô ở các bản sau. Bật liên tục để dữ liệu ngày càng nhiều, tiếng ngày càng đúng xe bạn.\n\"Xe bứt tốc 0–100\": cho app biết xe mạnh cỡ nào. Xe điện mạnh (vd 350 mã lực, ~6 s) thì đi nhẹ tiếng thư giãn, chỉ khi đạp sâu mới gầm hết cỡ — giống xe thật.";
         case SecRun: return @"Bật mục này để pô ảo tự nổ máy khi xe bắt đầu chạy (GPS > 12 km/h) hoặc khi iPhone kết nối CarPlay, và tự tắt khi xe dừng hẳn 3 phút.";
         case SecTest: return @"Chỉ dùng khi xe đang đỗ. Kéo thanh tốc độ để nghe sang số mà không cần chạy xe.";
-        case SecStatus: return @"\"Xuất báo cáo cho Claude\" đóng gói nhật ký, bộ đếm sự kiện, chất lượng cảm biến, lỗi thoát app và chuyến đi gần đây thành 1 tệp. Không chứa tọa độ, tên hay số điện thoại. Gửi tệp vào khung chat với Claude để phân tích.\nGắn iPhone cố định trên giá đỡ. Lần đầu lái, tăng tốc và phanh vài lần để máy tự học hướng xe.";
+        case SecStatus: return @"\"Chẩn đoán CarPlay\": tweak chỉ ĐỌC và ghi lại định dạng âm thanh xe khai báo, định dạng iPhone đang gửi (PCM/AAC…), tần số, tốc độ bit, độ trễ – không thay đổi gì. Đã xoá mã thiết bị, địa chỉ MAC, khoá, tên. Kết quả nằm trong báo cáo.\n\"Xuất báo cáo cho Claude\" đóng gói nhật ký, bộ đếm sự kiện, chất lượng cảm biến, lỗi thoát app và chuyến đi gần đây thành 1 tệp. Không chứa tọa độ, tên hay số điện thoại. Gửi tệp vào khung chat với Claude để phân tích.\nGắn iPhone cố định trên giá đỡ. Lần đầu lái, tăng tốc và phanh vài lần để máy tự học hướng xe.";
         case SecUpdate: return @"Thêm nguồn NDA Drive vào Sileo một lần. Các bản sau sẽ tự hiện trong mục cập nhật của Sileo.\n\"Hồ sơ chuẩn theo xe\": bộ tinh chỉnh tiếng riêng cho từng dòng VinFast, được Claude cập nhật từ số liệu các chuyến chạy thử bạn gửi. App tự tải mỗi ngày; chạm để tải và áp dụng ngay.";
     }
     return nil;
@@ -191,6 +191,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 0) return [self infoCell:@"Vị trí" detail:e.locationStatusText icon:@"location.fill" tappable:YES];
             if (ip.row == 1) return [self infoCell:@"Căn chỉnh cảm biến" detail:e.sensorStatusText icon:@"gyroscope" tappable:YES];
             if (ip.row == 3) return [self infoCell:@"Phân tích đồng bộ tiếng – xe" detail:nil icon:@"waveform.path.ecg" tappable:YES];
+            if (ip.row == 5) return [self switchCell:@"Chẩn đoán CarPlay (tweak)" icon:@"waveform.badge.magnifyingglass" on:![NSFileManager.defaultManager fileExistsAtPath:@"/var/jb/var/mobile/Library/NDADrive/carplay-diag.off"] tag:26];
             if (ip.row == 4) return [self infoCell:@"Xuất TOÀN BỘ dữ liệu (7 ngày)" detail:[NSString stringWithFormat:@"%ld chuyến", (long)[PATrial totalTrips]] icon:@"externaldrive.fill" tappable:YES];
             return [self infoCell:@"Xuất báo cáo cho Claude" detail:@"1 tệp .zip" icon:@"doc.zipper" tappable:YES];
         case SecUpdate:
@@ -259,6 +260,17 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             break;
         case 18: e.learnEnabled = s.on; break;
         case 25: e.autoProfile = s.on; break;
+        case 26: {
+            NSString *flag = @"/var/jb/var/mobile/Library/NDADrive/carplay-diag.off";
+            [NSFileManager.defaultManager createDirectoryAtPath:flag.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
+            if (s.on) [NSFileManager.defaultManager removeItemAtPath:flag error:nil];
+            else [[NSData data] writeToFile:flag atomically:YES];
+            UIAlertController *a = [UIAlertController alertControllerWithTitle:s.on ? @"Đã bật chẩn đoán CarPlay" : @"Đã tắt chẩn đoán CarPlay"
+                message:@"Có hiệu lực sau khi khởi động lại iPhone (hoặc bấm Userspace Reboot trong Dopamine)." preferredStyle:UIAlertControllerStyleAlert];
+            [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];
+            [self presentViewController:a animated:YES completion:nil];
+            break;
+        }
         case 24:
             e.collectMode = s.on;
             [self reloadRow:3 sec:SecLearn];

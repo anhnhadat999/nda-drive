@@ -356,8 +356,34 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     return NO;
 }
 
+// Ghi lai thong so duong ra am thanh moi lan doi (de chan doan chat luong am thanh CarPlay)
+- (void)snapshotRoute:(NSUInteger)reason {
+    AVAudioSession *as = AVAudioSession.sharedInstance;
+    NSMutableArray *outs = [NSMutableArray array];
+    BOOL car = NO;
+    for (AVAudioSessionPortDescription *o in as.currentRoute.outputs) {
+        if ([o.portType isEqualToString:AVAudioSessionPortCarAudio]) car = YES;
+        [outs addObject:@{ @"loai": o.portType ?: @"", @"so_kenh": @(o.channels.count), @"nguon_du_lieu": @(o.dataSources.count),
+                           @"am_khong_gian": @(o.spatialAudioEnabled) }];
+    }
+    NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyy-MM-dd HH:mm:ss";
+    NSDictionary *snap = @{ @"luc": [df stringFromDate:[NSDate date]], @"ly_do": @(reason), @"carplay": @(car), @"dau_ra": outs,
+        @"tan_so_mau_hz": @(as.sampleRate), @"tan_so_mong_muon_hz": @(as.preferredSampleRate),
+        @"bo_dem_ms": @(round(as.IOBufferDuration * 10000) / 10), @"do_tre_ra_ms": @(round(as.outputLatency * 10000) / 10),
+        @"so_kenh_ra": @(as.outputNumberOfChannels), @"so_kenh_ra_toi_da": @(as.maximumOutputNumberOfChannels),
+        @"app_khac_dang_phat": @(as.isOtherAudioPlaying), @"am_luong_he_thong": @(round(as.outputVolume * 100) / 100) };
+    NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
+    NSMutableArray *arr = [([d arrayForKey:@"carplay.routes"] ?: @[]) mutableCopy];
+    [arr addObject:snap];
+    while (arr.count > 40) [arr removeObjectAtIndex:0];
+    [d setObject:arr forKey:@"carplay.routes"];
+    if (car) PALog(@"CarPlay am thanh: %.0f Hz, %ld kenh (toi da %ld), bo dem %.1f ms, tre %.1f ms", as.sampleRate, (long)as.outputNumberOfChannels, (long)as.maximumOutputNumberOfChannels, as.IOBufferDuration * 1000, as.outputLatency * 1000);
+}
+
 - (void)routeChanged:(NSNotification *)n {
+    NSUInteger reason = [n.userInfo[AVAudioSessionRouteChangeReasonKey] unsignedIntegerValue];
     dispatch_async(dispatch_get_main_queue(), ^{
+        [self snapshotRoute:reason];
         self->_routeCarPlay = [self routeIsCarPlay];
         [self evaluate];
     });

@@ -202,6 +202,7 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         rep[@"nguoi_lai_thu"] = e.testerTag ?: @"";
         rep[@"ho_so_may_chu"] = profInfo;
         rep[@"thiet_bi_luc_xuat"] = devInfo;
+        rep[@"carplay_duong_am_thanh"] = [NSUserDefaults.standardUserDefaults arrayForKey:@"carplay.routes"] ?: @[];
 
         NSFileManager *fm = NSFileManager.defaultManager;
         NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyyMMdd_HHmmss";
@@ -217,6 +218,25 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         NSURL *cd = [dir URLByAppendingPathComponent:@"loi-thoat-app" isDirectory:YES];
         [fm createDirectoryAtURL:cd withIntermediateDirectories:YES attributes:nil error:nil];
         for (NSURL *u in [fm contentsOfDirectoryAtURL:[self crashDir] includingPropertiesForKeys:nil options:0 error:nil]) [fm copyItemAtURL:u toURL:[cd URLByAppendingPathComponent:u.lastPathComponent] error:nil];
+        // nhat ky tweak chan doan CarPlay (do tweak ghi tu airplayd / carkitd / mediaserverd)
+        {
+            NSURL *cpd = [dir URLByAppendingPathComponent:@"carplay-chan-doan" isDirectory:YES];
+            [fm createDirectoryAtURL:cpd withIntermediateDirectories:YES attributes:nil error:nil];
+            NSMutableArray *found = [NSMutableArray array];
+            for (NSString *src in @[@"/var/jb/var/mobile/Library/NDADrive/carplay-diag", @"/var/mobile/Library/Logs/NDADrive-carplay", @"/private/var/tmp/ndadrive-carplay"]) {
+                for (NSString *f in [fm contentsOfDirectoryAtPath:src error:nil]) {
+                    NSString *p = [src stringByAppendingPathComponent:f];
+                    NSDictionary *at = [fm attributesOfItemAtPath:p error:nil];
+                    NSString *dst = [NSString stringWithFormat:@"%@__%@", src.lastPathComponent, f];
+                    BOOL ok = [fm copyItemAtPath:p toPath:[cpd.path stringByAppendingPathComponent:dst] error:nil];
+                    [found addObject:@{ @"tep": p, @"kich_thuoc": at[NSFileSize] ?: @0, @"doc_duoc": @(ok) }];
+                }
+            }
+            rep[@"carplay_chan_doan_tep"] = found;
+            rep[@"carplay_chan_doan_tat"] = @([fm fileExistsAtPath:@"/var/jb/var/mobile/Library/NDADrive/carplay-diag.off"]);
+            NSData *js2 = [NSJSONSerialization dataWithJSONObject:rep options:NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys error:nil];
+            [js2 writeToURL:[dir URLByAppendingPathComponent:@"bao-cao.json"] atomically:YES];
+        }
         // chuyen di: moi tom tat + 3 tep CSV gan nhat
         NSURL *td = [dir URLByAppendingPathComponent:@"chuyen-di" isDirectory:YES];
         [fm createDirectoryAtURL:td withIntermediateDirectories:YES attributes:nil error:nil];
