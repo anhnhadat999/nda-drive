@@ -103,13 +103,13 @@ nav button.act{color:var(--amb)}
 <script>
 "use strict";
 const WASM_B64="__WASM_B64__";
-const APP_VER="1.8.4-web";
+const APP_VER="1.8.5-web";
 const $=id=>document.getElementById(id);
 const toast=m=>{const t=$('toast');t.textContent=m;t.style.opacity=1;clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.opacity=0,2600)};
 
 // ---------------- Luu tru ----------------
 const DEF={preset:"amg",vol:.7,tone:.5,pops:1,shiftPop:1,autoVol:1,rearFx:1,rearAmt:.7,sub:.6,growl:.6,crisp:.6,interior:.4,mech:.3,
-  learn:1,autoProfile:1,vehicle:"vf7-plus",tester:"",autoStart:0,hp:349,kg:2205,t100:5.8,applied:{},days:[],km:0,min:0,trips:0,counters:{}};
+  learn:1,autoProfile:1,audioOut:'webaudio',audioTests:[],vehicle:"vf7-plus",tester:"",autoStart:0,hp:349,kg:2205,t100:5.8,applied:{},days:[],km:0,min:0,trips:0,counters:{}};
 let P;try{P=Object.assign({},DEF,JSON.parse(localStorage.getItem('nda.web.v1')||'{}'))}catch(e){P=Object.assign({},DEF)}
 const save=()=>{try{localStorage.setItem('nda.web.v1',JSON.stringify(P))}catch(e){}};
 const bump=k=>{P.counters[k]=(P.counters[k]||0)+1;save()};
@@ -175,15 +175,47 @@ function unlockAudio(){
   if(ctx){try{const b=ctx.createBuffer(1,1,22050),src=ctx.createBufferSource();src.buffer=b;src.connect(ctx.destination);src.start(0)}catch(e){}ctx.resume&&ctx.resume()}
 }
 function startAudio(){
-  if(ctx){unlockAudio();return}
+  if(ctx&&node){unlockAudio();routeOut();return}
   const AC=window.AudioContext||window.webkitAudioContext;if(!AC){toast('Trình duyệt không hỗ trợ âm thanh');return}
-  try{ctx=new AC({latencyHint:'interactive'})}catch(e){ctx=new AC()}
-  ctx.onstatechange=()=>render();
+  if(!ctx){try{ctx=new AC({latencyHint:'interactive'})}catch(e){ctx=new AC()}ctx.onstatechange=()=>render()}   // ctx co the da tao boi trang Kiem tra am thanh
   unlockAudio();
   node=ctx.createScriptProcessor(2048,0,1);
   node.onaudioprocess=e=>{const out=e.outputBuffer.getChannelData(0);let o=0;while(o<out.length){const n=Math.min(4096,out.length-o);const p=X.nda_render(n,ctx.sampleRate);out.set(new Float32Array(X.memory.buffer,p,n),o);o+=n}lastAudio=performance.now()};
-  node.connect(ctx.destination);
+  routeOut();
 }
+// Duong ra am thanh: 'webaudio' = thang ra loa (mac dinh); 'media' = qua trinh phat media (<audio>) –
+// mot so trinh duyet tren o to chi cho phat tieng qua trinh phat media
+let mediaDest=null,mediaEl=null;
+function routeOut(){
+  if(!node)return;try{node.disconnect()}catch(e){}
+  if(P.audioOut==='media'&&ctx.createMediaStreamDestination){
+    if(!mediaDest){mediaDest=ctx.createMediaStreamDestination();mediaEl=new Audio();mediaEl.setAttribute('playsinline','');mediaEl.srcObject=mediaDest.stream}
+    node.connect(mediaDest);mediaEl.play().catch(e=>{SEN.errs.push('media play: '+e.name)});
+  }else{node.connect(ctx.destination);if(mediaEl)mediaEl.pause()}
+}
+// ---- Kiem tra am thanh: 3 duong phat, nguoi dung xac nhan co nghe thay khong ----
+function toneWavURL(f,sec){const sr=22050,n=Math.round(sr*sec),b=new ArrayBuffer(44+n*2),v=new DataView(b);const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+  w(0,'RIFF');v.setUint32(4,36+n*2,true);w(8,'WAVE');w(12,'fmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){const env=Math.min(1,i/400,(n-i)/400);v.setInt16(44+i*2,Math.round(Math.sin(2*Math.PI*f*i/sr)*12000*env),true)}
+  return URL.createObjectURL(new Blob([b],{type:'audio/wav'}))}
+const ATEST={last:null};
+async function audioTest(k){
+  const r={thu:k,luc:new Date().toISOString(),loi:'',trang_thai:''};
+  try{
+    if(k===1){const a=new Audio(toneWavURL(440,1.2));a.setAttribute('playsinline','');await a.play();r.trang_thai='media: dang phat'}
+    else{
+      const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw new Error('khong co AudioContext');
+      if(!ctx){try{ctx=new AC({latencyHint:'interactive'})}catch(e){ctx=new AC()}ctx.onstatechange=()=>render()}
+      unlockAudio();await (ctx.resume?ctx.resume():Promise.resolve());
+      const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=k===2?660:880;g.gain.value=0.35;o.connect(g);
+      if(k===2)g.connect(ctx.destination);
+      else{if(!ctx.createMediaStreamDestination)throw new Error('khong ho tro MediaStreamDestination');const d=ctx.createMediaStreamDestination();g.connect(d);const a=new Audio();a.setAttribute('playsinline','');a.srcObject=d.stream;await a.play()}
+      o.start();o.stop(ctx.currentTime+1.2);r.trang_thai='ctx '+ctx.state+' · '+ctx.sampleRate+' Hz';
+    }
+  }catch(e){r.loi=(e&&e.name?e.name+': ':'')+(e&&e.message||e)}
+  ATEST.last=r;renderSettings();
+}
+function audioAnswer(heard){const r=ATEST.last;if(!r)return;r.nghe_thay=heard;P.audioTests=(P.audioTests||[]).concat([r]).slice(-20);save();bump('audio_test_'+r.thu+(heard?'_ok':'_no'));ATEST.last=null;renderSettings()}
 // buoc vat ly khi khong co am thanh (che do theo doi im lang)
 setInterval(()=>{if(X&&performance.now()-lastAudio>400)X.nda_step(0.1)},100);
 
@@ -391,7 +423,7 @@ function renderSettings(){const r=$('setRoot');if(r.contains(document.activeElem
     const item=(id,ic,t,sub)=>`<div class="row" data-p="${id}"><span class="ic">${ic}</span><span class="t">${t}<span class="sub">${esc(sub)}</span></span></div>`;
     r.innerHTML=`<h1>Cài đặt</h1><h2>Xe & âm thanh</h2><div class="card menu">${item('sound','♫','Lựa chọn âm thanh',pr?pr.name:'')}${item('car','🚗','Xe đang lái',v?'VinFast '+vTitle(v):'Xe khác')}${item('tune','☰','Tinh chỉnh âm thanh',`âm lượng ${Math.round(P.vol*100)}% · gằn ${Math.round(P.growl*100)}% · dòn ${Math.round(P.crisp*100)}%`)}</div>
     <h2>Thông minh</h2><div class="card menu">${item('auto','✦','Tự động hoá (AI trên máy)',P.learn&&s?`đang học · ${s[19].toFixed(0)} km · tin cậy ${(s[17]*100).toFixed(0)}%`:'tắt')}${item('report','▤','Báo cáo hệ thống','kiểm tra & xuất báo cáo')}${item('update','⟳','Cập nhật hệ thống',profText())}</div>
-    <h2>Khác</h2><div class="card menu">${item('run','⚡','Nổ máy tự động',P.autoStart?'bật':'tắt')}</div><p class="foot">NDA Drive Web ${APP_VER} · dùng chung lõi âm thanh với app iPhone/Android</p>`;
+    <h2>Khác</h2><div class="card menu">${item('run','⚡','Nổ máy tự động',P.autoStart?'bật':'tắt')}${item('audiotest','🔊','Kiểm tra âm thanh',P.audioOut==='media'?'đang phát qua trình phát media':'đang phát Web Audio')}</div><p class="foot">NDA Drive Web ${APP_VER} · dùng chung lõi âm thanh với app iPhone/Android</p>`;
     r.querySelectorAll('[data-p]').forEach(e=>e.onclick=()=>{page=e.dataset.p;if(page==='update')fetchProfiles();renderSettings();scrollTo(0,0)});return}
   const back=`<button class="back" id="bk">‹ Cài đặt</button>`;let h='';
   const sw=(k,t)=>`<div class="row"><span class="t">${t}</span><input type="checkbox" class="sw" data-k="${k}" ${P[k]?'checked':''}></div>`;
@@ -416,6 +448,17 @@ function renderSettings(){const r=$('setRoot');if(r.contains(document.activeElem
   else if(page==='update'){h=`<h1>Cập nhật hệ thống</h1><div class="card"><div class="row"><span class="t">Phiên bản web</span><span class="v">${APP_VER}</span></div><div class="row"><span class="t">Hồ sơ chuẩn theo xe</span><span class="v">${esc(profText())}</span></div></div>
     <button class="btn" id="applyProf">Tải & áp dụng hồ sơ cho xe này</button><button class="btn" id="reload">Tải lại bản web mới nhất</button>
     <p class="foot">Bộ tinh chỉnh riêng cho từng dòng VinFast được Claude cập nhật từ báo cáo các chuyến chạy thử. Web tự kiểm tra mỗi lần mở.</p>`}
+  else if(page==='audiotest'){const T=P.audioTests||[],res=k=>{const x=T.filter(t=>t.thu===k).slice(-1)[0];return x?(x.nghe_thay?'<b class="ok">nghe thấy</b>':'<b class="bad">không nghe</b>')+(x.loi?' · '+esc(x.loi):''):'<span class="mut">chưa thử</span>'};
+    h=`<h1>Kiểm tra âm thanh</h1><p class="foot">Bật âm lượng xe lên vừa phải. Bấm lần lượt từng nút, mỗi nút phát một tiếng "bíp" 1 giây, rồi trả lời có nghe thấy không.</p>
+    <div class="card"><div class="row"><span class="t">Thử 1 · Trình phát media (tệp âm thanh)</span><span class="v">${res(1)}</span></div>
+    <div class="row"><span class="t">Thử 2 · Web Audio (đường mặc định)</span><span class="v">${res(2)}</span></div>
+    <div class="row"><span class="t">Thử 3 · Web Audio qua trình phát media</span><span class="v">${res(3)}</span></div></div>
+    <button class="btn" data-at="1">▶ Thử 1</button><button class="btn" data-at="2">▶ Thử 2</button><button class="btn" data-at="3">▶ Thử 3</button>
+    ${ATEST.last?`<div class="card" style="margin-top:12px"><b>Vừa phát Thử ${ATEST.last.thu}</b>${ATEST.last.loi?`<p class="bad">Lỗi: ${esc(ATEST.last.loi)}</p>`:`<p class="mut">${esc(ATEST.last.trang_thai)}</p>`}<p>Anh có nghe thấy tiếng bíp không?</p><button class="btn" data-ans="1">Có, nghe thấy</button><button class="btn" data-ans="0">Không nghe thấy</button></div>`:''}
+    <h2>Đường phát tiếng pô</h2><div class="card">
+    <div class="row opt ${P.audioOut!=='media'?'sel':''}" data-ao="webaudio"><span class="t"><b>Web Audio</b><small>Độ trễ thấp nhất. Dùng nếu Thử 2 nghe thấy.</small></span></div>
+    <div class="row opt ${P.audioOut==='media'?'sel':''}" data-ao="media"><span class="t"><b>Qua trình phát media</b><small>Dùng nếu chỉ Thử 3 nghe thấy (trình duyệt xe chặn Web Audio). Trễ hơn một chút.</small></span></div></div>
+    <p class="foot">Nếu cả 3 đều không nghe: thử mở một video YouTube ngay trên trình duyệt xe. Nếu YouTube cũng không có tiếng thì xe đang chặn âm thanh của trình duyệt (có xe chỉ cho phát khi đỗ) – khi đó dùng iPhone/Android để phát tiếng pô. Kết quả kiểm tra được ghi vào báo cáo.</p>`}
   else if(page==='run'){h=`<h1>Nổ máy tự động</h1><div class="card">${sw('autoStart','Tự nổ máy khi xe chạy (GPS > 12 km/h)')}</div><p class="foot">Khi bật, sau khi bấm START một lần, pô ảo tự nổ máy mỗi khi xe bắt đầu chạy và tự tắt khi xe dừng hẳn 3 phút. Trình duyệt cần để mở và màn hình sáng.</p>`}
   r.innerHTML=back+h;$('bk').onclick=()=>{page=null;renderSettings()};
   r.querySelectorAll('[data-k]').forEach(e=>e.onchange=()=>{P[e.dataset.k]=e.checked?1:0;save();applyParams();if(e.dataset.k==='autoProfile'&&e.checked)applyProfile(false);evaluate()});
@@ -425,6 +468,9 @@ function renderSettings(){const r=$('setRoot');if(r.contains(document.activeElem
   const t=$('tester');if(t)t.oninput=()=>{P.tester=t.value.trim().slice(0,24);save()};
   const on=(id,f)=>{const e=$(id);if(e)e.onclick=f};
   on('resetLearn',()=>{if(confirm('Xoá hồ sơ đã học và học lại từ đầu?')){X.nda_learn_reset();X.nda_cal_reset();localStorage.removeItem('nda.web.learn');localStorage.removeItem('nda.web.cal');renderSettings()}});
+  r.querySelectorAll('[data-at]').forEach(e=>e.onclick=()=>audioTest(+e.dataset.at));
+  r.querySelectorAll('[data-ans]').forEach(e=>e.onclick=()=>audioAnswer(e.dataset.ans==='1'));
+  r.querySelectorAll('[data-ao]').forEach(e=>e.onclick=()=>{P.audioOut=e.dataset.ao;save();if(ctx&&node)routeOut();bump('audio_out_'+P.audioOut);toast(P.audioOut==='media'?'Tiếng pô phát qua trình phát media':'Tiếng pô phát qua Web Audio');renderSettings()});
   on('ex1',()=>exportReport(false));on('ex2',()=>exportReport(true));
   on('applyProf',async()=>{await fetchProfiles();toast(applyProfile(true)?'Đã áp dụng hồ sơ':'Chưa có hồ sơ cho xe này');renderSettings()});
   on('reload',()=>location.reload());
@@ -437,6 +483,8 @@ async function exportReport(full){
     xe:v?{id:v.id,ten:vTitle(v),hp:v.hp,kw:v.kw,kg:v.kg,t100:v.t100,drive:v.drive,uoc_tinh:v.est}:{id:P.vehicle,hp:P.hp,kg:P.kg,t100:P.t100},
     nguoi_lai_thu:P.tester,ho_so_may_chu:{server_rev:PROF?PROF.rev:0,applied_rev:P.applied[P.vehicle]|0,auto:P.autoProfile,status:profText()},
     settings:Object.fromEntries(Object.entries(P).filter(([k])=>!['counters','days','applied'].includes(k))),
+    am_thanh:{duong_phat:P.audioOut||'webaudio',kiem_tra:P.audioTests||[],ctx:ctx?{state:ctx.state,sample_rate:ctx.sampleRate,base_latency:ctx.baseLatency||null,output_latency:ctx.outputLatency||null}:null,
+      ho_tro:{AudioContext:!!(window.AudioContext||window.webkitAudioContext),AudioWorklet:typeof AudioWorkletNode!=='undefined',MediaStreamDestination:!!(window.AudioContext&&AudioContext.prototype.createMediaStreamDestination),audioSession:!!navigator.audioSession}},
     kha_nang_trinh_duyet:caps().map(([t,ok,v])=>({ten:t,co:ok,gia_tri:v})),danh_gia_he_thong:assess().map(([t,v,l])=>({ten:t,gia_tri:v,muc:l})),
     state_now:s?{fused_kmh:s[0],calibrated:s[2],cal_progress:s[5],mount_angle_deg:s[6],gps_delay_s:s[7],quality:s[21],gps_repeat_ratio:s[22],imu_hz:SEN.imuHz,gps_hz:SEN.gpsHz,gps_acc_m:SEN.gpsAcc}:{},
     learned:s?{sport:s[16],confidence:s[17],zero_to_100_s:s[18],distance_km:s[19],samples:s[20]}:{},
