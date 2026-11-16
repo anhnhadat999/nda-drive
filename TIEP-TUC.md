@@ -49,6 +49,9 @@
 | P3 | Theme Sony Aino kiểu iOS | mục 4.5 | ngắn |
 | P3 | Kho Google Drive (Kho ảnh / Dự án + bảng danh mục) | chủ dự án đồng ý tạo | ngắn |
 
-## 6. Cách chủ dự án làm việc
+## 6. Tra lịch sử
+Mốc phiên bản, quyết định đã chốt, các câu hỏi đã có kết luận: `docs/LICH-SU.md` (chỉ mở khi cần).
+
+## 7. Cách chủ dự án làm việc
 Chỉ nói ý tưởng hoặc gửi tệp/ảnh bằng lời tự nhiên – Claude tự hiểu (bảng trong `CLAUDE.md`), tự làm trọn vòng.
 Cuối mỗi phiên Claude tự cập nhật mục 1, 4, 5 của tệp này.
