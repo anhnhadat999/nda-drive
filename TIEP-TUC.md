@@ -49,9 +49,6 @@
 | P3 | Theme Sony Aino kiểu iOS | mục 4.5 | ngắn |
 | P3 | Kho Google Drive (Kho ảnh / Dự án + bảng danh mục) | chủ dự án đồng ý tạo | ngắn |
 
-## 6. Mẫu yêu cầu ngắn cho phiên mới (dán vào là chạy)
-- `Đọc TIEP-TUC.md. Phân tích báo cáo đính kèm (máy: iPhone/A7/web), chỉnh profiles.json và sửa lỗi nếu có, phát hành.`
-- `Đọc TIEP-TUC.md. Kết quả kiểm tra âm thanh VF7: Thử1=…, Thử2=…, Thử3=…, YouTube=…. Sửa để web có tiếng.`
-- `Đọc TIEP-TUC.md. Làm việc P2 Android giao diện 3 tab, phát hành APK.`
-- `Đọc TIEP-TUC.md. Chỉ trả lời, không sửa mã: …`
-Phiên mới cần có kho `anhnhadat999/nda-drive` (thêm bằng add_repo nếu thiếu). Cuối mỗi phiên: cập nhật mục 1, 4, 5 của tệp này.
+## 6. Cách chủ dự án làm việc
+Chỉ nói ý tưởng hoặc gửi tệp/ảnh bằng lời tự nhiên – Claude tự hiểu (bảng trong `CLAUDE.md`), tự làm trọn vòng.
+Cuối mỗi phiên Claude tự cập nhật mục 1, 4, 5 của tệp này.

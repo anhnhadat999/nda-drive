@@ -4,8 +4,26 @@
 - Trả lời **tiếng Việt**, ngắn, dễ hiểu cho người không chuyên. Kết quả trước, giải thích sau.
 - Không hỏi lại điều đã có trong `TIEP-TUC.md`. Chỉ hỏi khi thiếu dữ liệu mà chỉ chủ dự án có.
 
+## Tự hiểu ý chủ dự án (QUAN TRỌNG NHẤT)
+Chủ dự án **không dùng câu lệnh**: chỉ nói ý tưởng, gửi ảnh, gửi tệp báo cáo bằng lời tự nhiên.
+Mỗi phiên: **tự đọc `TIEP-TUC.md`** (trạng thái, bản đồ hệ thống, việc chờ) rồi tự suy ra việc cần làm, tự làm trọn vòng
+(sửa → kiểm thử → phát hành → gửi tệp → cập nhật `TIEP-TUC.md`). Không bắt chủ dự án chọn phương án kỹ thuật; tự chọn cách tốt nhất và nói ngắn lý do.
+Chỉ hỏi khi thiếu thứ chỉ chủ dự án có (số đo, ảnh, quyết định tiền bạc/quyền riêng tư) – gom thành 1 câu hỏi.
+
+Hiểu ý thường gặp → việc cần làm:
+| Chủ dự án nói / gửi | Tự làm |
+|---|---|
+| Gửi tệp `.zip` báo cáo (1 hay nhiều máy) | Giải nén, đọc `bao-cao.json` + `nhat-ky.txt` + CSV (`tools/analyze_trip.py`), tìm lỗi + độ lệch tiếng/chân ga, sửa mã, chỉnh `repo-static/profiles.json` (rev+1), phát hành, báo kết quả bằng lời thường |
+| "không có tiếng", "lỗi", "văng app", "không chạy", ảnh chụp màn hình lỗi | Tìm nguyên nhân trong mã + bài học mục 3 của TIEP-TUC, sửa, kiểm thử, phát hành |
+| "tiếng chưa giống", "muốn uy lực/dòn/êm hơn", "lệch chân ga" | Chỉnh lõi `app/PASynth.c` hoặc `profiles.json`, chạy `test/run_tests.sh`, phát hành |
+| Ý tưởng tính năng mới | Làm luôn trên cả nền tảng liên quan (iOS / Android / web dùng chung lõi C), giữ giao diện kiểu iOS hiện có |
+| "kiểm tra", "giả lập", "rà soát" | Chạy bộ kiểm thử + kịch bản web Playwright + 1 trợ lý rà mã nền; sửa hết lỗi tìm được |
+| Kết quả "Kiểm tra âm thanh" trên VF7 | Chọn đường phát phù hợp, sửa web (xem việc P1 trong TIEP-TUC) |
+| Hỏi kiến thức / mua sắm / xe / thiết bị | Trả lời ngắn, không sửa mã |
+| Việc khác dự án (router, Sony Aino, Wi‑Fi ndarealty, Drive) | Xem mục 4–5 TIEP-TUC, làm phần đã có dữ liệu |
+
 ## Tiết kiệm token (bắt buộc)
-1. **Đọc `TIEP-TUC.md` trước**, không đọc lại cả kho. Mở tệp bằng `grep -n` / `sed -n 'a,bp'` đúng đoạn cần sửa.
+1. Chỉ đọc `TIEP-TUC.md`, không đọc lại cả kho. Mở tệp bằng `grep -n` / `sed -n 'a,bp'` đúng đoạn cần sửa.
 2. Sửa nhiều chỗ: 1 lệnh `python3` thay chuỗi có `assert` (đọc tệp → thay → ghi). **Không bao giờ** `open(p,'w')` trước khi đọc xong (đã làm mất trắng tệp 2 lần).
 3. Không chụp màn hình / in log dài nếu không cần; lọc bằng `tail`, `grep`.
 4. Chờ CI bằng **một** lệnh `until …; do sleep 20; done` (không chuỗi `sleep`, không hỏi lặp).
