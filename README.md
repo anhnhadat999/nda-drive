@@ -1,5 +1,7 @@
 # NDA Drive
 
+> Làm việc với Claude: đọc `CLAUDE.md` (quy tắc) và `TIEP-TUC.md` (trạng thái, việc tiếp theo) trước.
+
 Pô ảo cho xe: giả lập tiếng pô xe xăng thể thao trên iPhone đã jailbreak (Dopamine, iOS 15–16, rootless).
 
 - Cắm Apple CarPlay → tiếng đề máy, nổ máy.
