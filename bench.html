@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NDA TV Bench</title>
+<style>
+/* Viet cho trinh duyet doi cu (Chromium 69 tren TV Samsung 2020): khong dung flex gap, aspect-ratio, color-mix */
+:root { --bg:#09090b; --card:#141417; --line:#2a2a2f; --fg:#f2efe8; --muted:#8e8e93; --gold:#d4b26a; --red:#e5484d; --green:#3dd68c; }
+html, body { margin:0; background:var(--bg); color:var(--fg); font-family:-apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+body { padding:24px 32px 40px; }
+h1 { margin:0 0 4px; font-weight:300; font-size:34px; letter-spacing:1px; }
+h1 b { color:var(--gold); font-weight:600; }
+.sub { color:var(--muted); margin:0 0 18px; font-size:16px; }
+.wrap { display:grid; grid-template-columns: 1.15fr 1fr; grid-gap:20px; }
+@media (max-width: 800px) { .wrap { grid-template-columns: 1fr; } body { padding:16px; } }
+.card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px 18px; }
+.card h2 { margin:0 0 10px; font-size:13px; letter-spacing:2px; color:var(--muted); font-weight:600; }
+#stage { position:relative; background:#000; border-radius:12px; overflow:hidden; height:300px; }
+#stage canvas { position:absolute; left:0; top:0; width:100%; height:100%; }
+#hud { position:absolute; left:12px; top:10px; font:600 15px monospace; color:var(--gold); text-shadow:0 0 6px #000; }
+.btn { display:inline-block; background:var(--gold); color:#111; border:0; border-radius:28px; padding:14px 34px; font-size:20px; font-weight:700; letter-spacing:2px; cursor:pointer; margin-top:14px; }
+.btn:focus { outline:3px solid #fff; outline-offset:3px; }
+.btn[disabled] { opacity:.45; }
+table { width:100%; border-collapse:collapse; font-size:15px; }
+td { padding:7px 4px; border-bottom:1px solid var(--line); vertical-align:top; }
+td.v { text-align:right; font-family:monospace; white-space:nowrap; }
+.ok { color:var(--green); } .mid { color:var(--gold); } .bad { color:var(--red); } .mut { color:var(--muted); }
+#verdict { font-size:16px; line-height:1.55; }
+#verdict p { margin:6px 0; }
+.code { font:13px monospace; color:var(--muted); word-break:break-all; margin-top:8px; }
+</style>
+</head>
+<body>
+<h1>NDA <b>TV BENCH</b></h1>
+<p class="sub">Đo khả năng chạy game web trên tivi. Bấm BẮT ĐẦU (hoặc chờ tự chạy), để yên khoảng 1 phút, rồi chụp màn hình kết quả.</p>
+
+<div class="wrap">
+  <div>
+    <div class="card">
+      <h2>MÀN HÌNH THỬ</h2>
+      <div id="stage"><canvas id="c2d"></canvas><canvas id="cgl"></canvas><div id="hud">Sẵn sàng</div></div>
+      <button class="btn" id="go">BẮT ĐẦU</button>
+      <span class="mut" id="auto" style="margin-left:14px"></span>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <h2>NHẬN XÉT</h2>
+      <div id="verdict" class="mut">Chưa có kết quả.</div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>KẾT QUẢ</h2>
+    <table id="res"></table>
+    <div class="code" id="ua"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var resT = $('res'), hud = $('hud'), c2d = $('c2d'), cgl = $('cgl');
+  var R = {};
+  function row(name, val, cls) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + name + '</td><td class="v ' + (cls || '') + '">' + val + '</td>';
+    resT.appendChild(tr);
+  }
+  function fpsClass(f) { return f >= 50 ? 'ok' : (f >= 28 ? 'mid' : 'bad'); }
+  function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+
+  // ---------- Thong tin thiet bi ----------
+  var ua = navigator.userAgent;
+  var chrome = (ua.match(/Chrome\/(\d+)/) || [])[1];
+  $('ua').textContent = ua;
+  row('Trình duyệt (Chromium)', chrome ? 'M' + chrome : 'không rõ');
+  row('Màn hình / cửa sổ', screen.width + '×' + screen.height + ' / ' + window.innerWidth + '×' + window.innerHeight + ' @' + (window.devicePixelRatio || 1) + 'x');
+  row('Số nhân CPU', navigator.hardwareConcurrency || 'không rõ');
+  row('Bộ nhớ thiết bị', navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'không công bố');
+  row('WebAssembly', typeof WebAssembly === 'object' ? 'có' : 'KHÔNG', typeof WebAssembly === 'object' ? 'ok' : 'bad');
+  row('Web Audio', (window.AudioContext || window.webkitAudioContext) ? 'có' : 'KHÔNG', (window.AudioContext || window.webkitAudioContext) ? 'ok' : 'bad');
+  row('Tay cầm (Gamepad API)', navigator.getGamepads ? 'có' : 'không', navigator.getGamepads ? 'ok' : 'mut');
+
+  // ---------- WebGL: kiem tra va thong tin chip do hoa ----------
+  var gl = null;
+  try { gl = cgl.getContext('webgl', { antialias: false }) || cgl.getContext('experimental-webgl'); } catch (e) {}
+  var gl2 = false;
+  try { gl2 = !!document.createElement('canvas').getContext('webgl2'); } catch (e) {}
+  row('WebGL 1.0', gl ? 'có' : 'KHÔNG', gl ? 'ok' : 'bad');
+  row('WebGL 2.0', gl2 ? 'có' : 'không', gl2 ? 'ok' : 'mut');
+  if (gl) {
+    var dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    var renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    R.gpu = renderer;
+    row('Chip đồ họa', renderer || 'ẩn');
+    row('Texture tối đa', gl.getParameter(gl.MAX_TEXTURE_SIZE) + ' px');
+    row('Instancing', gl.getExtension('ANGLE_instanced_arrays') ? 'có' : 'không', 'mut');
+  }
+
+  // ---------- Bai 1: CPU (JavaScript) ----------
+  function cpuTest() {
+    var t0 = now(), n = 0, s = 0;
+    while (now() - t0 < 1500) { for (var i = 0; i < 20000; i++) { s = ((s + Math.imul(i, i)) | 0) ^ 7; } n++; }
+    return n * 20000 / ((now() - t0) / 1000) / 1e6;   // trieu phep/giay
+  }
+  // ---------- Bai 2: WebAssembly ----------
+  var WASM = new Uint8Array([0,0x61,0x73,0x6d,1,0,0,0, 1,6,1,0x60,1,0x7f,1,0x7f, 3,2,1,0, 7,5,1,1,0x66,0,0,
+    0x0a,0x2b,1,0x29, 1,2,0x7f, 2,0x40, 3,0x40, 0x20,1,0x20,0,0x4f,0x0d,1, 0x20,2,0x20,1,0x20,1,0x6c,0x6a,0x41,7,0x73,0x21,2,
+    0x20,1,0x41,1,0x6a,0x21,1, 0x0c,0, 0x0b,0x0b, 0x20,2,0x0b]);
+  function wasmTest(cb) {
+    if (typeof WebAssembly !== 'object') return cb(0);
+    WebAssembly.instantiate(WASM).then(function (r) {
+      var f = r.instance.exports.f, t0 = now(), n = 0;
+      while (now() - t0 < 1500) { f(1000000); n++; }
+      cb(n * 1e6 / ((now() - t0) / 1000) / 1e6);
+    }).catch(function () { cb(0); });
+  }
+
+  // ---------- Do FPS chung ----------
+  // Khoi dong: ve lien tuc den khi 15 khung hinh lien tiep < 150 ms (toi da 10 s), roi moi do trong 'seconds' giay.
+  // (lan dau dung WebGL, trinh duyet phai bien dich shader -> vai khung dau rat cham, khong tinh)
+  function measure(seconds, frame, done) {
+    var start = now(), last = start, stable = 0, mStart = 0, times = [];
+    function tick() {
+      var t = now(), dt = t - last; last = t;
+      frame(t - start);
+      if (!mStart) {
+        stable = dt < 150 ? stable + 1 : 0;
+        if (stable >= 15 || t - start > 10000) mStart = t;
+      } else times.push(dt);
+      if (!mStart || t - mStart < seconds * 1000 || times.length < 10) requestAnimationFrame(tick);
+      else {
+        var avg = 1000 / (times.reduce(function (x, y) { return x + y; }, 0) / times.length);
+        var sorted = times.slice().sort(function (x, y) { return y - x; });
+        var low = 1000 / sorted[Math.max(0, Math.floor(sorted.length * 0.05))];
+        done(Math.min(avg, 240), Math.min(low, 240));
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- Bai 3: Canvas 2D (2000 vat the) ----------
+  function canvasTest(done) {
+    cgl.style.display = 'none'; c2d.style.display = 'block';
+    var w = c2d.width = c2d.clientWidth, h = c2d.height = c2d.clientHeight, ctx = c2d.getContext('2d');
+    var N = 2000, p = [];
+    for (var i = 0; i < N; i++) p.push({ x: Math.random() * w, y: Math.random() * h, vx: Math.random() * 4 - 2, vy: Math.random() * 4 - 2, c: 'hsl(' + (i % 360) + ',70%,60%)' });
+    measure(6, function () {
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, w, h);
+      for (var i = 0; i < N; i++) {
+        var o = p[i]; o.x += o.vx; o.y += o.vy;
+        if (o.x < 0 || o.x > w) o.vx = -o.vx; if (o.y < 0 || o.y > h) o.vy = -o.vy;
+        ctx.fillStyle = o.c; ctx.fillRect(o.x, o.y, 6, 6);
+      }
+    }, done);
+  }
+
+  // ---------- Bai 4-7: WebGL 3D (khoi lap phuong co chieu sang) ----------
+  var VS = 'attribute vec3 p;attribute vec3 n;uniform mat4 m;uniform mat4 vp;varying vec3 vn;varying float d;' +
+           'void main(){vec4 w=m*vec4(p,1.0);vn=mat3(m)*n;gl_Position=vp*w;d=gl_Position.z;}';
+  var FS = 'precision mediump float;varying vec3 vn;varying float d;uniform vec3 col;' +
+           'void main(){float l=max(dot(normalize(vn),normalize(vec3(0.4,0.8,0.5))),0.0)*0.8+0.2;' +
+           'vec3 c=col*l;float f=clamp(d/60.0,0.0,1.0);gl_FragColor=vec4(mix(c,vec3(0.03),f),1.0);}';
+  function cubeData() {
+    var f = [[0,0,1],[0,0,-1],[0,1,0],[0,-1,0],[1,0,0],[-1,0,0]], v = [];
+    f.forEach(function (n) {
+      var a = n[0] ? [0,1,2] : (n[1] ? [1,2,0] : [2,0,1]);
+      var u = [0,0,0], w = [0,0,0]; u[a[1]] = 1; w[a[2]] = 1;
+      var q = [[-1,-1],[1,-1],[1,1],[-1,-1],[1,1],[-1,1]];
+      q.forEach(function (s) {
+        var pt = [0,0,0]; for (var k = 0; k < 3; k++) pt[k] = n[k] * 0.5 + u[k] * s[0] * 0.5 + w[k] * s[1] * 0.5;
+        v.push(pt[0], pt[1], pt[2], n[0], n[1], n[2]);
+      });
+    });
+    return new Float32Array(v);
+  }
+  function persp(fov, asp, nr, fr) { var f = 1 / Math.tan(fov / 2), r = 1 / (nr - fr);
+    return [f / asp,0,0,0, 0,f,0,0, 0,0,(nr + fr) * r,-1, 0,0,2 * nr * fr * r,0]; }
+  function glTest(count, scale, done) {
+    if (!gl) return done(0, 0);
+    c2d.style.display = 'none'; cgl.style.display = 'block';
+    cgl.width = Math.round(cgl.clientWidth * scale); cgl.height = Math.round(cgl.clientHeight * scale);
+    function sh(t, s) { var o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); return o; }
+    var pr = gl.createProgram(); gl.attachShader(pr, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(pr); gl.useProgram(pr);
+    var b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, cubeData(), gl.STATIC_DRAW);
+    var ap = gl.getAttribLocation(pr, 'p'), an = gl.getAttribLocation(pr, 'n');
+    gl.enableVertexAttribArray(ap); gl.vertexAttribPointer(ap, 3, gl.FLOAT, false, 24, 0);
+    gl.enableVertexAttribArray(an); gl.vertexAttribPointer(an, 3, gl.FLOAT, false, 24, 12);
+    var um = gl.getUniformLocation(pr, 'm'), uvp = gl.getUniformLocation(pr, 'vp'), uc = gl.getUniformLocation(pr, 'col');
+    gl.enable(gl.DEPTH_TEST); gl.viewport(0, 0, cgl.width, cgl.height);
+    var P = persp(1.0, cgl.width / cgl.height, 0.1, 100), cubes = [];
+    for (var i = 0; i < count; i++) cubes.push([Math.random() * 40 - 20, Math.random() * 20 - 10, -5 - Math.random() * 50, Math.random() * 6, 0.3 + Math.random() * 0.7]);
+    gl.uniformMatrix4fv(uvp, false, new Float32Array(P));
+    var M = new Float32Array(16);
+    measure(6, function (t) {
+      gl.clearColor(0.03, 0.03, 0.04, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      for (var i = 0; i < cubes.length; i++) {
+        var c = cubes[i], a = c[3] + t * 0.001, ca = Math.cos(a), sa = Math.sin(a), s = c[4];
+        M[0] = ca * s; M[1] = 0; M[2] = -sa * s; M[3] = 0; M[4] = 0; M[5] = s; M[6] = 0; M[7] = 0;
+        M[8] = sa * s; M[9] = 0; M[10] = ca * s; M[11] = 0; M[12] = c[0]; M[13] = c[1] + Math.sin(a) * 0.5; M[14] = c[2]; M[15] = 1;
+        gl.uniformMatrix4fv(um, false, M);
+        gl.uniform3f(uc, 0.83, 0.70 - (i % 5) * 0.08, 0.42 + (i % 3) * 0.1);
+        gl.drawArrays(gl.TRIANGLES, 0, 36);
+      }
+    }, done);
+  }
+
+  // ---------- Chay lan luot ----------
+  var running = false;
+  function run() {
+    if (running) return; running = true;
+    $('go').disabled = true; $('auto').textContent = ''; clearInterval(autoT);
+    var steps = [
+      ['CPU (JavaScript)', function (cb) { hud.textContent = 'Đo CPU…'; setTimeout(function () { var v = cpuTest(); R.cpu = v; cb(v.toFixed(0) + ' tr phép/s', v > 150 ? 'ok' : (v > 60 ? 'mid' : 'bad')); }, 50); }],
+      ['WebAssembly', function (cb) { hud.textContent = 'Đo WebAssembly…'; wasmTest(function (v) { R.wasm = v; cb(v ? v.toFixed(0) + ' tr phép/s' : 'không chạy', v ? 'ok' : 'bad'); }); }],
+      ['2D: 2000 vật thể', function (cb) { hud.textContent = 'Đồ họa 2D…'; canvasTest(function (a, l) { R.c2d = a; cb(a.toFixed(0) + ' FPS (thấp ' + l.toFixed(0) + ')', fpsClass(a)); }); }],
+      ['Khởi động đồ họa 3D', function (cb) { hud.textContent = 'Khởi động đồ họa 3D (không tính điểm)…'; glTest(60, 0.5, function () { cb(gl ? 'xong' : '—', 'mut'); }); }],
+      ['3D nhẹ: 150 khối', function (cb) { hud.textContent = '3D nhẹ…'; glTest(150, 1, function (a, l) { R.g1 = a; cb(gl ? a.toFixed(0) + ' FPS (thấp ' + l.toFixed(0) + ')' : 'không có WebGL', fpsClass(a)); }); }],
+      ['3D vừa: 600 khối', function (cb) { hud.textContent = '3D vừa…'; glTest(600, 1, function (a, l) { R.g2 = a; cb(gl ? a.toFixed(0) + ' FPS (thấp ' + l.toFixed(0) + ')' : '—', fpsClass(a)); }); }],
+      ['3D vừa @ 720p (×0.6)', function (cb) { hud.textContent = '3D vừa, độ phân giải thấp…'; glTest(600, 0.6, function (a, l) { R.g2l = a; cb(gl ? a.toFixed(0) + ' FPS (thấp ' + l.toFixed(0) + ')' : '—', fpsClass(a)); }); }],
+      ['3D nặng: 2000 khối', function (cb) { hud.textContent = '3D nặng…'; glTest(2000, 1, function (a, l) { R.g3 = a; cb(gl ? a.toFixed(0) + ' FPS (thấp ' + l.toFixed(0) + ')' : '—', fpsClass(a)); }); }]
+    ];
+    var i = 0;
+    (function next() {
+      if (i >= steps.length) return finish();
+      var s = steps[i++];
+      s[1](function (val, cls) { row(s[0], val, cls); setTimeout(next, 300); });
+    })();
+  }
+
+  function finish() {
+    hud.textContent = 'Xong. Chụp màn hình gửi Claude.';
+    var v = [], g1 = R.g1 || 0, g2 = R.g2 || 0, g3 = R.g3 || 0, gl2l = R.g2l || 0;
+    function line(cls, t) { v.push('<p class="' + cls + '">' + t + '</p>'); }
+    line(R.c2d >= 50 ? 'ok' : (R.c2d >= 28 ? 'mid' : 'bad'), 'Game 2D: ' + (R.c2d >= 50 ? 'mượt' : (R.c2d >= 28 ? 'chơi được' : 'giật')) + ' (' + (R.c2d || 0).toFixed(0) + ' FPS).');
+    if (!gl) line('bad', 'Không có WebGL: chỉ chơi được game 2D.');
+    else {
+      line(fpsClass(g1), '3D nhẹ: ' + (g1 >= 50 ? 'mượt' : (g1 >= 28 ? 'chơi được' : 'giật')) + ' (' + g1.toFixed(0) + ' FPS).');
+      line(fpsClass(g2), '3D vừa: ' + (g2 >= 50 ? 'mượt' : (g2 >= 28 ? 'chơi được' : 'giật')) + ' (' + g2.toFixed(0) + ' FPS)' + (gl2l > g2 * 1.2 ? '; giảm độ phân giải giúp tăng lên ' + gl2l.toFixed(0) + ' FPS → nên dùng chế độ hiệu năng.' : '.'));
+      line(fpsClass(g3), '3D nặng: ' + (g3 >= 50 ? 'mượt' : (g3 >= 28 ? 'chơi được' : 'giật')) + ' (' + g3.toFixed(0) + ' FPS).');
+    }
+    line('mut', 'Mốc: từ 50 FPS là mượt, 28–50 chơi được, dưới 28 bị giật.');
+    $('verdict').className = ''; $('verdict').innerHTML = v.join('');
+    $('go').disabled = false; $('go').textContent = 'CHẠY LẠI'; running = false;
+  }
+
+  var infoRows = resT.rows.length;   // giu lai cac dong thong tin thiet bi khi chay lai
+  $('go').addEventListener('click', function () { while (resT.rows.length > infoRows) resT.deleteRow(infoRows); run(); });
+  // Tu chay sau 10 giay (phong khi remote kho bam nut)
+  var left = 10, autoT = setInterval(function () {
+    left--; $('auto').textContent = 'Tự chạy sau ' + left + ' giây';
+    if (left <= 0) { clearInterval(autoT); run(); }
+  }, 1000);
+  $('go').focus();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+Origin: NDA Drive
+Label: NDA Drive
+Suite: stable
+Version: 1.0
+Codename: ios
+Architectures: iphoneos-arm64
+Components: main
+Description: Nguồn cài đặt và cập nhật NDA Drive (pô ảo cho xe)
+MD5Sum:
+ 5c53b0c58f85907f6abcfae678fa968b 628 Packages
+ 2ca1fc71e2a01a8f2eedc8cca08b64b9 487 Packages.gz
+ a781e4bace20a69ccce86d7e7ed1e71e 515 Packages.bz2
+SHA256:
+ ae583643d95c5ff3a499573f13e86d227edb08ddda1e413dc1d3d30e9b00df48 628 Packages
+ 8a9a25b07a349e8a5cad07b0d2a0cf21d4852914b313564e1b7adab6bf406f96 487 Packages.gz
+ bc1b82253c3d7ce538f4d785637345f978c6018225e5e4943c24f69da871bf28 515 Packages.bz2
