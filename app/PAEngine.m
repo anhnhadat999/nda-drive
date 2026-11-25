@@ -75,6 +75,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _collectMode = [d boolForKey:@"collectMode"];
         _latencyComp = [d boolForKey:@"latComp"];
         _carAudioMode = [d integerForKey:@"carAudioMode"];
+        _measuredLatencyMs = [d doubleForKey:@"carLatMeasured"];
         _acousticCorrection = [d boolForKey:@"acousticCorr"];
         _vehicleId = [d stringForKey:@"vehicle"] ?: @"vf7-plus";
         _autoProfile = [d boolForKey:@"autoProfile"];
@@ -154,7 +155,10 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
 - (void)updateLatency {
     AVAudioSession *as = AVAudioSession.sharedInstance;
     _outputLatencyMs = (as.outputLatency + as.IOBufferDuration) * 1000;
-    _synth.leadS = _latencyComp ? fmin(1.0, _outputLatencyMs / 1000.0) : 0;   // CarPlay khong day tre toi ~1 s
+    // Gia lap lai 1.192 phut lai that (tools/replay_trip.c): du doan toc do toi uu ~40% do tre loa;
+    // du doan 100% lam sai tieng nhieu hon (dap/nha ga cua nguoi lai khong doan truoc duoc).
+    double latS = (_measuredLatencyMs > 0 && _routeCarPlay ? _measuredLatencyMs : _outputLatencyMs) / 1000.0;
+    _synth.leadS = _latencyComp ? fmin(0.45, 0.4 * latS) : 0;
     ((PAMotion *)_motion).audioLatencyMs = _outputLatencyMs;
 }
 - (void)setSubAmount:(double)v { _subAmount = v; [self save:@(v) key:@"subAmt"]; [self applySettings]; }
@@ -300,6 +304,19 @@ static NSString *modeFor(NSInteger m) {
 }
 
 - (BOOL)carOutTestRunning { return _carOutTest; }
+- (void)setMeasuredLatencyMs:(double)v {
+    _measuredLatencyMs = fmax(0, fmin(3000, v));
+    [NSUserDefaults.standardUserDefaults setDouble:_measuredLatencyMs forKey:@"carLatMeasured"];
+    PALog(@"Do tre CarPlay bang tai/mat: %.0f ms (iOS bao %.0f ms)", _measuredLatencyMs, _outputLatencyMs);
+    [self updateLatency];
+}
+- (BOOL)playClick {
+    if (!self.pipelineOn || _measuring || _carOutTest) return NO;
+    [self startAudio];
+    if (!_audio.isRunning) return NO;
+    _synth.clickReq = 1;
+    return YES;
+}
 
 // Thu tung kieu phien am thanh tren CarPlay, doc do tre ra loa iOS bao. Chon kieu tre thap nhat
 // (phai van ra CarPlay, >= 22 kHz, nhanh hon mac dinh it nhat 120 ms; neu khong giu mac dinh).

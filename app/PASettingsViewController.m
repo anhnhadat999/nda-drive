@@ -9,6 +9,7 @@
 #import "PATripsViewController.h"
 #import "PADiag.h"
 #import "PAAcousticViewController.h"
+#import "PACarLatencyViewController.h"
 #import "PASyncViewController.h"
 #import "PATrial.h"
 
@@ -59,7 +60,7 @@
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch ([self sec:s]) {
         case SecCar: return 5;
-        case SecSound: return 14;
+        case SecSound: return 15;
         case SecLearn: return 7;
         case SecRun: return 2;
         case SecTest: return 2;
@@ -166,6 +167,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 7) return [self switchCell:@"Hiệu ứng tiếng từ phía sau" icon:@"speaker.wave.2.fill" on:e.rearEffect tag:17];
             if (ip.row == 8) return [self sliderCell:@"Cường độ cảm giác phía sau" value:e.rearAmount max:1 tag:4 detail:[NSString stringWithFormat:@"%.0f%%", e.rearAmount * 100] enabled:e.rearEffect];
             if (ip.row == 9) return [self infoCell:@"Đo âm học khoang xe" detail:(e.acousticCorrection ? @"bù: bật" : nil) icon:@"waveform.and.mic" tappable:YES];
+            if (ip.row == 14) return [self infoCell:@"Đo tín hiệu CarPlay" detail:(e.measuredLatencyMs > 0 ? [NSString stringWithFormat:@"đo được %.0f ms", e.measuredLatencyMs] : @"tai & mắt · tweak") icon:@"antenna.radiowaves.left.and.right" tappable:YES];
             if (ip.row == 13) return [self infoCell:@"Kiểm tra đầu ra CarPlay" detail:(e.carOutTestRunning ? @"đang thử…" : [NSString stringWithFormat:@"%@ · trễ %.0f ms", [e carAudioModeName:e.carAudioMode], e.outputLatencyMs]) icon:@"car.fill" tappable:YES];
             if (ip.row == 11) return [self sliderCell:@"Giống ngồi trong xe" value:e.interior max:1 tag:22 detail:[NSString stringWithFormat:@"%.0f%%", e.interior * 100] enabled:YES];
             if (ip.row == 12) return [self sliderCell:@"Tiếng cơ khí (máy)" value:e.mechanical max:1 tag:23 detail:[NSString stringWithFormat:@"%.0f%%", e.mechanical * 100] enabled:YES];
@@ -245,6 +247,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     if ([self sec:ip.section] == SecStatus && ip.row == 0) {
         [PAEngine.shared requestLocationPermission];
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
+    } else if ([self sec:ip.section] == SecSound && ip.row == 14) {
+        [self.navigationController pushViewController:[PACarLatencyViewController new] animated:YES]; return;
     } else if ([self sec:ip.section] == SecSound && ip.row == 13) {
         [self carOutTest]; return;
     } else if ([self sec:ip.section] == SecSound && ip.row == 9) {

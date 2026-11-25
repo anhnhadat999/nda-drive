@@ -3,9 +3,9 @@
 ## 1. Đang ở đâu
 | Nền tảng | Phiên bản | Tải về |
 |---|---|---|
-| iPhone 12 (iOS 15.1.1, Dopamine rootless) | **1.8.5** (build 32) | release `latest` → `com.ndarealty.ndadrive_X_iphoneos-arm64.deb`; nguồn Sileo `https://raw.githubusercontent.com/anhnhadat999/nda-drive/gh-pages/` |
-| Android (Samsung A7) | **0.7.4** (code 11) | release `android-latest` → `NDADrive-android-X.apk` |
-| Web (iPhone/Android/màn hình VF7) | **1.8.6-web** | https://anhnhadat999.github.io/nda-drive/drive.html |
+| iPhone 12 (iOS 15.1.1, Dopamine rootless) | **1.8.6** (build 33) | release `latest` → `com.ndarealty.ndadrive_X_iphoneos-arm64.deb`; nguồn Sileo `https://raw.githubusercontent.com/anhnhadat999/nda-drive/gh-pages/` |
+| Android (Samsung A7) | **0.7.5** (code 12) | release `android-latest` → `NDADrive-android-X.apk` |
+| Web (iPhone/Android/màn hình VF7) | **1.8.7-web** | https://anhnhadat999.github.io/nda-drive/drive.html |
 | Xe | VinFast VF 7 Plus 349 HP, 2.205 kg, 0–100 5,8 s, **CarPlay không dây** | |
 
 ## 2. Bản đồ hệ thống (chỉ mở đúng tệp cần)
@@ -19,7 +19,7 @@
 - **Web** `web/app.html` + `web/wasm/` (lõi C → WebAssembly bằng clang/lld, `web/build-web.sh` nhúng base64 → `repo-static/drive.html`). Có trang **Kiểm tra âm thanh** (3 phép thử) + đường phát qua trình phát media.
 - **Máy chủ tĩnh** `repo-static/` → nhánh gh-pages: `drive.html`, `profiles.json` (thông số xe + bộ tinh chỉnh tiếng theo xe, tăng `rev` để đẩy cho mọi máy), kho Sileo.
 - **CI**: `.github/workflows/build.yml` (**ubuntu-24.04 + Theos Linux toolchain** – GitHub thiếu máy macOS), `android.yml` (chỉ chạy khi đổi `android/**` hoặc lõi C).
-- **Kiểm thử**: `test/run_tests.sh` (synth, fusion 5 kịch bản, EQ, zip, mute, âm học, học, **stress** NaN/∞/thời gian lùi). Công cụ: `tools/analyze_trip.py`.
+- **Kiểm thử**: `test/run_tests.sh` (giả lập lại chuyến thật `tools/replay_trip.c` + `test/data/`, synth, fusion 5 kịch bản, EQ, zip, mute, âm học, học, **stress** NaN/∞/thời gian lùi). Công cụ: `tools/analyze_trip.py`.
 - Khác: `extras/aino-proxy/` (proxy trình duyệt cho Sony Aino).
 
 ## 3. Bài học (đừng lặp lại)
@@ -30,7 +30,7 @@
 - Lệnh shell có heredoc chứa chữ giống `rm` có thể bị chặn → viết tệp bằng công cụ Write.
 
 ## 4. Đang chờ chủ dự án gửi
-0. **Kết quả "Kiểm tra đầu ra CarPlay"** (iPhone 1.8.5 tự chạy lần đầu cắm CarPlay; có trong báo cáo .zip mục `carplay_thu_dau_ra`). Báo cáo 24/11: CarPlay không dây VF7 trễ **1035 ms**, 48 kHz stereo.
+0. **Kết quả đo CarPlay** (1.8.6: Cài đặt → Âm thanh → "Đo tín hiệu CarPlay": đo tai & mắt + tín hiệu tweak; báo cáo .zip mục `carplay_tin_hieu`, `carplay_tre_do_tai_mat_ms`). Lộ trình: `docs/CARPLAY-DO-TRE.md`. **Kết quả "Kiểm tra đầu ra CarPlay"** (iPhone 1.8.5 tự chạy lần đầu cắm CarPlay; có trong báo cáo .zip mục `carplay_thu_dau_ra`). Báo cáo 24/11: CarPlay không dây VF7 trễ **1035 ms**, 48 kHz stereo.
 1. **Báo cáo 3 máy** (iPhone 1.8.4, A7 0.7.3, web trên VF7) sau 2–3 ngày chạy chung 1 xe (máy gắn chặt, chỉ 1 máy phát tiếng).
 2. ~~Chẩn đoán CarPlay~~: báo cáo 24/11 chỉ có log carkitd (Wi‑Fi/MDM), **không có** airplayd/mediaserverd → chưa biết định dạng mã hoá. Cần khởi động lại iPhone (userspace reboot) để tweak nạp vào airplayd rồi xuất lại.
 3. **Kết quả Kiểm tra âm thanh trên trình duyệt VF7** (Thử 1/2/3) + YouTube trên trình duyệt xe có tiếng không.

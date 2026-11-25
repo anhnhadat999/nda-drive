@@ -51,5 +51,26 @@ echo "== Suc chiu dung: 15 tieng x 11 xe VinFast, du lieu GPS/cam bien hong (NaN
 $CC -O2 -Wno-misleading-indentation -o "$OUT/stress" test/stress_test.c app/PASynth.c app/PAFusion.c app/PALearn.c -lm
 "$OUT/stress" 1.5 q > "$OUT/stress.txt" || fail=1
 tail -4 "$OUT/stress.txt"
+echo "== Gia lap lai CHUYEN DI THAT (3 x 10 phut VF 7 Plus, test/data): tieng nghe thay so voi xe that"
+$CC -O2 -Wall -Wno-misleading-indentation -o "$OUT/replay" tools/replay_trip.c app/PASynth.c -lm
+"$OUT/replay" -L 0 test/data/*.csv > "$OUT/r0.txt"
+"$OUT/replay" -L 1.04 -lead 0 test/data/*.csv > "$OUT/r1.txt"
+"$OUT/replay" -L 1.04 -lead 0.42 test/data/*.csv > "$OUT/r2.txt"
+python3 - "$OUT/r0.txt" "$OUT/r1.txt" "$OUT/r2.txt" <<'PY' || fail=1
+import json,sys
+r0,r1,r2=[json.load(open(p)) for p in sys.argv[1:4]]
+print("  loa day / iPhone  :", r0)
+print("  CarPlay 1,04 s, bu 0,42 s:", r2)
+ok=True
+def chk(c,m):
+    global ok
+    print("   ", "OK " if c else "LOI", m); ok&=c
+chk(r0["toc_do_rms_kmh"]<1.5, "toc do tieng khop xe (loa khong tre) < 1.5 km/h")
+chk(r0["dap_ga_tre_s"]<0.8, "dap ga -> tieng gam (loa khong tre) < 0.8 s")
+chk(r0["tai_vuot"]<0.02 and r2["tai_vuot"]<0.03, "khong gam sai luc (vuot tai)")
+chk(r0["dao_so_phut"]<0.3 and r2["dao_so_phut"]<0.3, "khong dao so (<0.3 lan/phut)")
+chk(r2["toc_do_rms_kmh"]<=r1["toc_do_rms_kmh"]+0.02, "bu tre 0,42 s khong lam xau toc do")
+print("  -> DAT" if ok else "  -> KHONG DAT"); sys.exit(0 if ok else 1)
+PY
 rm -rf "$OUT"
 if [ $fail = 0 ]; then echo "TAT CA KIEM THU: DAT"; else echo "CO KIEM THU KHONG DAT"; exit 1; fi

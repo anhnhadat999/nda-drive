@@ -12,6 +12,7 @@
 | 1.8.3 | Tweak chẩn đoán CarPlay (chỉ đọc) + ghi đường âm thanh |
 | 1.8.4 / A 0.7.3 / web 1.8.5 | 12 lỗi từ giả lập + rà mã (hầm chui, kẹt xe, -ffast-math, tải lại trang…); trang Kiểm tra âm thanh trên web |
 | 1.8.5 / A 0.7.4 / web 1.8.6 | Báo cáo 24/11 (90 chuyến, 448 km): CarPlay trễ 1035 ms → thêm Kiểm tra đầu ra CarPlay (tự chọn kiểu phát trễ thấp nhất), bù trễ tới 1,0 s; tiếng xe điện mạnh theo chân ga rõ hơn (tải^0.65); GPS kiểm tra khi đỗ không tính là lỗi; đánh giá GPS/cảm biến "đang nghỉ" khi xe đỗ |
+| 1.8.6 / A 0.7.5 / web 1.8.7 | Giả lập lại 1.192 phút lái thật: bù trễ tối ưu = 40% trễ loa (bù 100% làm xấu hơn); dự đoán đạp ga (jerk) không đáng → tắt. Trang "Đo tín hiệu CarPlay" (tai & mắt, tiếng tích trong lõi C), tweak gửi tín hiệu qua Darwin notify (vượt hộp cát). Kết luận: phải giảm trễ đường phát (docs/CARPLAY-DO-TRE.md) |
 
 ## Quyết định đã chốt
 - Hồ sơ cập nhật theo xe = tệp tĩnh `profiles.json` trên GitHub Pages (miễn phí), không máy chủ thu dữ liệu; báo cáo gửi thủ công.

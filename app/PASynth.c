@@ -48,6 +48,25 @@ int pa_preset_index(const char *key) {
     return 0;
 }
 
+// Tham so toi uu tu gia lap lai chuyen di that (tools/replay): xem docs/CARPLAY-DO-TRE.md
+#ifndef PA_JERK_LEAD_DEFAULT
+#define PA_JERK_LEAD_DEFAULT 0.0
+#endif
+#ifndef PA_JERK_SMOOTH
+#define PA_JERK_SMOOTH 4.0
+#endif
+#ifndef PA_ACC_K
+#define PA_ACC_K 8.0
+#endif
+#ifndef PA_LOAD_UP
+#define PA_LOAD_UP 6.0
+#endif
+#ifndef PA_LOAD_DN
+#define PA_LOAD_DN 5.0
+#endif
+#ifndef PA_LOAD_GAMMA_DEFAULT
+#define PA_LOAD_GAMMA_DEFAULT 0.65
+#endif
 static inline double clampd(double v, double a, double b) { return v < a ? a : (v > b ? b : v); }
 static inline double frand(PASynth *s) { // 0..1
     s->rng ^= s->rng << 13; s->rng ^= s->rng >> 17; s->rng ^= s->rng << 5;
@@ -95,6 +114,8 @@ void pa_init(PASynth *s) {
     s->growl = 0.5;
     s->crisp = 0.5;
     s->perfCap = 0;
+    s->jerkLead = PA_JERK_LEAD_DEFAULT;
+    s->loadGamma = 0;
     s->perfKnee = 50;
     s->interior = 0.35;
     s->mech = 0.3;
@@ -129,9 +150,18 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     // toc do muc tieu: GPS + du doan theo gia toc (GPS tre ~1 giay)
     double target = 0, accIn = 0;
     if (s->gpsSpeed >= 0 && s->gpsAge < 4) {
-        double ahead = (s->gpsAge < 0.5 ? s->gpsAge : 0.5) + fmin(1.0, fmax(0, s->leadS));
-        target = s->gpsSpeed + s->gpsAccel * ahead;
-        accIn = s->gpsAccel;
+        double lead = fmin(1.0, fmax(0, s->leadS));
+        double ahead = (s->gpsAge < 0.5 ? s->gpsAge : 0.5) + lead;
+        // du doan gia toc tuong lai: gia toc hien tai + do bien thien (jerk) x thoi gian tre loa
+        s->accF += (s->gpsAccel - s->accF) * fmin(1, dt * PA_JERK_SMOOTH);
+        double j = (s->accF - s->accPrev) / dt; s->accPrev = s->accF;
+        if (!isfinite(j)) j = 0;
+        s->jerk += (clampd(j, -40, 40) - s->jerk) * fmin(1, dt * PA_JERK_SMOOTH);
+        double jl = clampd(s->jerkLead, 0, 1);
+        double aPred = s->gpsAccel + clampd(s->jerk * lead * jl, -8, 8);   // km/h/s, gioi han +-2.2 m/s2
+        if (s->gpsAccel > 0 && aPred < 0 && s->gpsSpeed < 3) aPred = 0;
+        target = s->gpsSpeed + 0.5 * (s->gpsAccel + aPred) * ahead;
+        accIn = aPred;
         if (target < 0) target = 0;
     } else if (s->gpsSpeed >= 0) {
         target = s->speed * 0.98; // mat tin hieu: giu toc do, giam dan
@@ -139,7 +169,7 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     // bam sat toc do da hop nhat (gioi han de khong giat khi du lieu nhay)
     double dv = clampd((target - s->speed) * fmin(1, dt * 12), -45 * dt, 35 * dt);
     s->speed = fmax(0, s->speed + dv);
-    s->accel += (accIn - s->accel) * fmin(1, dt * 8);
+    s->accel += (accIn - s->accel) * fmin(1, dt * PA_ACC_K);
 
     // ---- Do dap ga theo vat ly: luc can dat duoc gia toc hien tai ----
     double v = s->speed / 3.6, aMs = s->accel / 3.6;
@@ -163,11 +193,11 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
         double r = aReq / aMax;
         // Xe dien manh (aMax lon): lai binh thuong chi dung 15-30% do boc -> tieng gan nhu nho ga suot.
         // Nang doan giua theo duong cong (r^0.65): ga vua da nghe ro, dap het van danh cho tang toc manh.
-        if (s->perfCap > 0.5 && r > 0) r = pow(r, 0.65);
+        if (s->perfCap > 0.5 && r > 0) r = pow(r, s->loadGamma > 0.2 ? s->loadGamma : PA_LOAD_GAMMA_DEFAULT);
         load = clampd(r, 0.12, 1);
     }
     if (s->load > 0.6 && load < 0.1 && s->boost > 0.45) s->bovPending = 1;
-    s->load += (load - s->load) * fmin(1, dt * (load > s->load ? 6 : 5));
+    s->load += (load - s->load) * fmin(1, dt * (load > s->load ? PA_LOAD_UP : PA_LOAD_DN));
     if (s->blip > 0) { s->blip -= dt; if (s->load < 0.7) s->load = 0.7; }      // ro ga khi ve so
     s->overT = s->load < 0.06 ? s->overT + dt : 0;                          // thoi gian dang nha ga
     if (p->turbo) {
@@ -254,6 +284,7 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
         return;
     }
     const double TWO_PI = 6.283185307179586;
+    if (s->clickReq) { s->clickReq = 0; s->clickLen = s->clickN = (int)(sr * 0.03); }
     for (int i = 0; i < n; i++) {
         double kk = (i + 1.0) / n;
         double rpmA = rpm0 + (rpmT - rpm0) * kk;
@@ -417,6 +448,11 @@ void pa_render(PASynth *s, float *out, int n, double sr) {
         }
         o *= s->master;
         out[i] = s->mute ? 0.0f : (float)tanh(o * 1.2); // gioi han an toan; im lang khi thu thap
+        if (s->clickN > 0) {   // tieng tich do tre: 2 kHz, bao hinh tam giac nhon
+            int k = s->clickLen - s->clickN--;
+            double env = 1.0 - (double)k / s->clickLen;
+            out[i] = (float)fmax(-1, fmin(1, out[i] * 0.3 + 0.7 * env * env * sin(2 * M_PI * 2000.0 * k / sr)));
+        }
         s->rpmA = rpmA; s->loadA = loadA;
     }
 }

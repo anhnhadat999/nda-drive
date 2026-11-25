@@ -1,3 +1,4 @@
+#import "PACarSignal.h"
 #import "PADiag.h"
 #import "PAVehicles.h"
 #import "PAProfiles.h"
@@ -205,6 +206,8 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         rep[@"carplay_duong_am_thanh"] = [NSUserDefaults.standardUserDefaults arrayForKey:@"carplay.routes"] ?: @[];
         rep[@"carplay_thu_dau_ra"] = [NSUserDefaults.standardUserDefaults dictionaryForKey:@"carplay.outTest"] ?: @{};
         rep[@"carplay_kieu_phat"] = @([NSUserDefaults.standardUserDefaults integerForKey:@"carAudioMode"]);
+        rep[@"carplay_tre_do_tai_mat_ms"] = @([NSUserDefaults.standardUserDefaults doubleForKey:@"carLatMeasured"]);
+        rep[@"carplay_tin_hieu"] = [PACarSignal read];
 
         NSFileManager *fm = NSFileManager.defaultManager;
         NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyyMMdd_HHmmss";

@@ -55,6 +55,9 @@ typedef struct {
     volatile double gpsSpeed;     // km/h, -1 = chua co
     volatile double gpsAccel;     // km/h/s
     volatile double leadS;        // bu do tre loa (CarPlay): du doan truoc bay nhieu giay
+    volatile double jerkLead;     // 0..1: du doan ca thay doi gia toc (dap/nha ga) trong khoang tre loa
+    volatile int clickReq;        // phat 1 tieng tich 30 ms (do tre loa bang tai/mat), ca khi dang im lang
+    volatile double loadGamma;    // duong cong tai cho xe dien manh (r^gamma); 0 = mac dinh
     volatile double gpsAge;       // giay ke tu ban tin cuoi (luong audio tu cong them)
     // (gpsSpeed/gpsAccel nay la toc do & gia toc DA HOP NHAT GPS + cam bien, cap nhat 100 lan/giay)
     volatile double grade;        // do doc (sin goc) tu ap ke
@@ -68,6 +71,8 @@ typedef struct {
 
     // noi bo
     double stateT, accel, cut, master, shiftT, blip, overT;
+    double accF, accPrev, jerk;
+    int clickN, clickLen;   // bo du doan gia toc (bu tre loa)
     double subPh, subLp, thumpEnv, thumpPh; int thumpReq;
     double crackEnv, crackHp, crackLast;   // transient "tach" sac net moi lan no (do don)
     double mechPh, mechLp, mechEnv;        // lop tieng co khi

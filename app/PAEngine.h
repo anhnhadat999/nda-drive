@@ -49,6 +49,8 @@ extern NSString *const PAEngineDidUpdateNotification;
 // Kiem tra dau ra CarPlay: thu lan luot cac kieu phien am thanh, do do tre iOS bao, tu chon kieu tre thap nhat.
 @property (nonatomic, readonly) NSInteger carAudioMode;      // 0 mac dinh, 1 dan duong, 2 loi noi
 @property (nonatomic, readonly) BOOL carOutTestRunning;
+@property (nonatomic) double measuredLatencyMs;              // do tre CarPlay do bang tai/mat (0 = chua do); uu tien hon so iOS bao
+- (BOOL)playClick;                                           // phat 1 tieng tich qua duong ra hien tai (NO neu bo am thanh dang tat)
 - (NSString *)carAudioModeName:(NSInteger)m;
 - (void)runCarPlayOutputTest:(void (^)(NSArray<NSDictionary *> *results, NSInteger chosen))done;
 - (void)resumeAfterMeasurement;

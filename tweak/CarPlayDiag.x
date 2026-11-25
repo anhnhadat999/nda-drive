@@ -17,6 +17,8 @@
 #import <unistd.h>
 #import <pthread.h>
 #import <ctype.h>
+#import <notify.h>
+#include "NDACarSignal.h"
 #import <stdlib.h>
 #import <string.h>
 
@@ -166,8 +168,13 @@ static int interesting(CFTypeRef v, int depth) {
     if (t == CFArrayGetTypeID()) { CFIndex n = CFArrayGetCount(v); for (CFIndex i = 0; i < n && i < 32; i++) if (interesting(CFArrayGetValueAtIndex(v, i), depth + 1)) return 1; }
     return 0;
 }
+static void scanSignals(CFTypeRef v, int depth);
+static void sendRec(unsigned kind, uint64_t payload);
+static unsigned fmtCode(UInt32 f);
 static void logPlist(const char *tag, CFTypeRef pl) {
-    if (!pl || !interesting(pl, 0)) return;
+    if (!pl) return;
+    scanSignals(pl, 0);
+    if (!interesting(pl, 0)) return;
     Buf o = {0}; ser(pl, &o, 0);
     if (o.b) { if (o.full) { o.full = 0; put(&o, " …(cat bot)"); } emit(tag, o.b); free(o.b); }
 }
@@ -209,6 +216,91 @@ static void logConverter(const char *kind, const AudioStreamBasicDescription *in
     snprintf(line, sizeof line, "%s ket qua %d\n  vao: %s\n  ra : %s", kind, (int)st, a, b);   // khong ghi con tro -> bo trung lap duoc
     (void)ref;
     emit("AUDIO CONVERTER", line);
+    if (in && out) sendRec(NDACS_K_CONVERTER, ndacs_conv(fmtCode(in->mFormatID), fmtCode(out->mFormatID),
+                                                         (unsigned)((out->mSampleRate > 0 ? out->mSampleRate : in->mSampleRate) / 1000), out->mChannelsPerFrame));
+}
+
+// ---------------- kenh tin hieu qua Darwin notify (vuot hop cat) ----------------
+static unsigned gProcId = NDACS_P_OTHER;
+static uint64_t gSentRec[64]; static int gSentI = 0;
+static void nsSet(const char *name, uint64_t v) {
+    int tok = 0;
+    if (notify_register_check(name, &tok) == NOTIFY_STATUS_OK) { notify_set_state(tok, v); notify_cancel(tok); }
+    notify_post(name);
+}
+static uint64_t nsGet(const char *name) {
+    int tok = 0; uint64_t v = 0;
+    if (notify_register_check(name, &tok) == NOTIFY_STATUS_OK) { notify_get_state(tok, &v); notify_cancel(tok); }
+    return v;
+}
+static void sendRec(unsigned kind, uint64_t payload) {
+    uint64_t v = ndacs_pack(kind, gProcId, payload);
+    dispatch_async(gQ, ^{
+        for (int i = 0; i < 64; i++) if (gSentRec[i] == v) return;   // da gui
+        gSentRec[gSentI] = v; gSentI = (gSentI + 1) % 64;
+        uint64_t n = nsGet(NDACS_COUNTER);
+        char name[96]; snprintf(name, sizeof name, NDACS_PREFIX "r%u", (unsigned)(n % NDACS_SLOTS));
+        nsSet(name, v);
+        nsSet(NDACS_COUNTER, n + 1);
+    });
+}
+static unsigned fmtCode(UInt32 f) {
+    switch (f) {
+        case kAudioFormatLinearPCM: return NDACS_F_PCM; case kAudioFormatMPEG4AAC: return NDACS_F_AAC_LC;
+        case kAudioFormatMPEG4AAC_ELD: return NDACS_F_AAC_ELD; case kAudioFormatMPEG4AAC_ELD_SBR: return NDACS_F_AAC_ELD_SBR;
+        case kAudioFormatMPEG4AAC_LD: return NDACS_F_AAC_LD; case kAudioFormatMPEG4AAC_HE: return NDACS_F_HE_AAC;
+        case kAudioFormatAppleLossless: return NDACS_F_ALAC; case kAudioFormatOpus: return NDACS_F_OPUS;
+        case kAudioFormatFLAC: return NDACS_F_FLAC; case kAudioFormatAC3: return NDACS_F_AC3; case kAudioFormatEnhancedAC3: return NDACS_F_EAC3;
+    }
+    return NDACS_F_OTHER;
+}
+static int dnum(CFDictionaryRef d, const char *k, double *out) {
+    CFStringRef ks = CFStringCreateWithCString(NULL, k, kCFStringEncodingUTF8);
+    CFTypeRef v = ks ? CFDictionaryGetValue(d, ks) : NULL; if (ks) CFRelease(ks);
+    if (v && CFGetTypeID(v) == CFNumberGetTypeID()) { CFNumberGetValue((CFNumberRef)v, kCFNumberDoubleType, out); return 1; }
+    if (v && CFGetTypeID(v) == CFBooleanGetTypeID()) { *out = CFBooleanGetValue((CFBooleanRef)v); return 1; }
+    return 0;
+}
+static unsigned atypeOf(CFDictionaryRef d) {
+    CFTypeRef v = CFDictionaryGetValue(d, CFSTR("audioType"));
+    if (!v || CFGetTypeID(v) != CFStringGetTypeID()) return NDACS_A_NUM;
+    char s[48]; cfstr((CFStringRef)v, s, sizeof s);
+    if (!strcasecmp(s, "default")) return NDACS_A_DEFAULT; if (!strcasecmp(s, "media")) return NDACS_A_MEDIA;
+    if (!strcasecmp(s, "telephony")) return NDACS_A_TELEPHONY; if (!strcasecmp(s, "speechRecognition")) return NDACS_A_SPEECH;
+    if (!strcasecmp(s, "alert")) return NDACS_A_ALERT;
+    return NDACS_A_OTHER;
+}
+// Quet thong diep cai dat CarPlay/AirPlay tim: luong am thanh (ct/sr/spf/latency), do tre xe bao, mat na dinh dang
+static void scanSignals(CFTypeRef v, int depth) {
+    if (!v || depth > 8) return;
+    CFTypeID t = CFGetTypeID(v);
+    if (t == CFDictionaryGetTypeID()) {
+        CFDictionaryRef d = (CFDictionaryRef)v;
+        double type = 0, ct = -1, sr = 0, spf = 0, latMax = 0, latMin = 0, outU = -1, inU = 0, mask = -1;
+        dnum(d, "type", &type);
+        if (!dnum(d, "ct", &ct)) dnum(d, "compressionType", &ct);
+        if (!dnum(d, "sr", &sr)) dnum(d, "sampleRate", &sr);
+        if (!dnum(d, "spf", &spf)) dnum(d, "samplesPerFrame", &spf);
+        dnum(d, "latencyMax", &latMax); dnum(d, "latencyMin", &latMin);
+        if (ct >= 0) {
+            double srEff = sr > 0 ? sr : 44100, lat = latMax > 0 ? latMax : latMin;
+            unsigned latMs = lat > 0 ? (unsigned)(lat > 5000 ? lat / srEff * 1000 : lat) : 0;   // so mau -> ms (gia tri nho coi la ms)
+            sendRec(NDACS_K_STREAM, ndacs_stream((unsigned)type, (unsigned)ct, (unsigned)(sr / 1000), (unsigned)spf, latMs));
+        }
+        if (dnum(d, "outputLatencyMicros", &outU)) {
+            dnum(d, "inputLatencyMicros", &inU);
+            sendRec(NDACS_K_LATENCY, ndacs_latency(atypeOf(d), (unsigned)type, (unsigned)(outU / 1000), (unsigned)(inU / 1000)));
+        }
+        if (dnum(d, "audioOutputFormats", &mask) && mask > 0) sendRec(NDACS_K_FORMATS, ndacs_formats((unsigned)type, (uint64_t)mask));
+        CFIndex n = CFDictionaryGetCount(d); if (n > 256) n = 256;
+        const void **vs = malloc(sizeof(void *) * (n ? n : 1));
+        CFDictionaryGetKeysAndValues(d, NULL, vs);
+        for (CFIndex i = 0; i < n; i++) scanSignals(vs[i], depth + 1);
+        free(vs);
+    } else if (t == CFArrayGetTypeID()) {
+        CFIndex n = CFArrayGetCount(v);
+        for (CFIndex i = 0; i < n && i < 64; i++) scanSignals(CFArrayGetValueAtIndex(v, i), depth + 1);
+    }
 }
 
 // ---------------- moc ham (goi lai ham goc nguyen ven) ----------------
@@ -251,6 +343,7 @@ static OSStatus h_ACSet(AudioConverterRef ref, AudioConverterPropertyID pid, UIn
                  pid == kAudioConverterEncodeBitRate ? "toc do bit (bit/giay)" : pid == kAudioConverterCodecQuality ? "chat luong ma hoa (0-127)" : "chat luong doi tan so",
                  *(const UInt32 *)data, (int)st);
         emit("AUDIO CONVERTER THUOC TINH", line);
+        if (pid == kAudioConverterEncodeBitRate) sendRec(NDACS_K_BITRATE, *(const UInt32 *)data / 1000);
         tGuard = 0;
     }
     return st;
@@ -281,6 +374,9 @@ static OSStatus h_ACSet(AudioConverterRef ref, AudioConverterPropertyID pid, UIn
         char ver[64] = "?"; NSString *v = NSProcessInfo.processInfo.operatingSystemVersionString; if (v) strlcpy(ver, v.UTF8String, sizeof ver);
         char line[160]; snprintf(line, sizeof line, "nap vao %s (pid %d), %s", gProc, getpid(), ver);
         emit("KHOI DONG", line);
+        gProcId = !strcmp(gProc, "airplayd") ? NDACS_P_AIRPLAYD : !strcmp(gProc, "carkitd") ? NDACS_P_CARKITD :
+                  !strcmp(gProc, "mediaserverd") ? NDACS_P_MEDIASERVERD : !strcmp(gProc, "audiomxd") ? NDACS_P_AUDIOMXD : NDACS_P_OTHER;
+        { char an[96]; snprintf(an, sizeof an, NDACS_ALIVE "%s", gProc); char *anc = strdup(an); uint64_t now = (uint64_t)time(NULL); dispatch_async(gQ, ^{ nsSet(anc, now); free(anc); }); }
         if (!gIsAudioDaemon) {   // thong diep CarPlay chi o airplayd / carkitd
             %init(NSPL);
             MSHookFunction((void *)CFPropertyListCreateWithData, (void *)h_CreateWithData, (void **)&o_CreateWithData);
