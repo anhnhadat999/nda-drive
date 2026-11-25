@@ -46,6 +46,11 @@ extern NSString *const PAEngineDidUpdateNotification;
 @property (nonatomic, readonly) double perfKneeKmh; // nguong gioi han cong suat (hien thi)
 @property (nonatomic) BOOL acousticCorrection;   // ap dung bu khoang xe tu ket qua do
 - (void)pauseForMeasurement;
+// Kiem tra dau ra CarPlay: thu lan luot cac kieu phien am thanh, do do tre iOS bao, tu chon kieu tre thap nhat.
+@property (nonatomic, readonly) NSInteger carAudioMode;      // 0 mac dinh, 1 dan duong, 2 loi noi
+@property (nonatomic, readonly) BOOL carOutTestRunning;
+- (NSString *)carAudioModeName:(NSInteger)m;
+- (void)runCarPlayOutputTest:(void (^)(NSArray<NSDictionary *> *results, NSInteger chosen))done;
 - (void)resumeAfterMeasurement;
 - (void)reloadAcoustic;         // cuong do cam giac phia sau 0..1
 @property (nonatomic) BOOL learnEnabled;

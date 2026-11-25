@@ -1,11 +1,11 @@
-# TIẾP TỤC – bàn giao NDA Drive (cập nhật 16/11/2026)
+# TIẾP TỤC – bàn giao NDA Drive (cập nhật 25/11/2026)
 
 ## 1. Đang ở đâu
 | Nền tảng | Phiên bản | Tải về |
 |---|---|---|
-| iPhone 12 (iOS 15.1.1, Dopamine rootless) | **1.8.4** (build 31) | release `latest` → `com.ndarealty.ndadrive_X_iphoneos-arm64.deb`; nguồn Sileo `https://raw.githubusercontent.com/anhnhadat999/nda-drive/gh-pages/` |
-| Android (Samsung A7) | **0.7.3** (code 10) | release `android-latest` → `NDADrive-android-X.apk` |
-| Web (iPhone/Android/màn hình VF7) | **1.8.5-web** | https://anhnhadat999.github.io/nda-drive/drive.html |
+| iPhone 12 (iOS 15.1.1, Dopamine rootless) | **1.8.5** (build 32) | release `latest` → `com.ndarealty.ndadrive_X_iphoneos-arm64.deb`; nguồn Sileo `https://raw.githubusercontent.com/anhnhadat999/nda-drive/gh-pages/` |
+| Android (Samsung A7) | **0.7.4** (code 11) | release `android-latest` → `NDADrive-android-X.apk` |
+| Web (iPhone/Android/màn hình VF7) | **1.8.6-web** | https://anhnhadat999.github.io/nda-drive/drive.html |
 | Xe | VinFast VF 7 Plus 349 HP, 2.205 kg, 0–100 5,8 s, **CarPlay không dây** | |
 
 ## 2. Bản đồ hệ thống (chỉ mở đúng tệp cần)
@@ -30,8 +30,9 @@
 - Lệnh shell có heredoc chứa chữ giống `rm` có thể bị chặn → viết tệp bằng công cụ Write.
 
 ## 4. Đang chờ chủ dự án gửi
+0. **Kết quả "Kiểm tra đầu ra CarPlay"** (iPhone 1.8.5 tự chạy lần đầu cắm CarPlay; có trong báo cáo .zip mục `carplay_thu_dau_ra`). Báo cáo 24/11: CarPlay không dây VF7 trễ **1035 ms**, 48 kHz stereo.
 1. **Báo cáo 3 máy** (iPhone 1.8.4, A7 0.7.3, web trên VF7) sau 2–3 ngày chạy chung 1 xe (máy gắn chặt, chỉ 1 máy phát tiếng).
-2. **Báo cáo chẩn đoán CarPlay** (thư mục `carplay-chan-doan` trong .zip, sau khi khởi động lại iPhone).
+2. ~~Chẩn đoán CarPlay~~: báo cáo 24/11 chỉ có log carkitd (Wi‑Fi/MDM), **không có** airplayd/mediaserverd → chưa biết định dạng mã hoá. Cần khởi động lại iPhone (userspace reboot) để tweak nạp vào airplayd rồi xuất lại.
 3. **Kết quả Kiểm tra âm thanh trên trình duyệt VF7** (Thử 1/2/3) + YouTube trên trình duyệt xe có tiếng không.
 4. Mẫu **DSP STEG** + sơ đồ loa; số đo loa (lỗ khoét, vòng bắt ốc, chiều sâu) cho thùng pô.
 5. Một tệp **.thm** từ Sony Aino (để làm theme kiểu iOS đúng chuẩn).
@@ -40,6 +41,7 @@
 ## 5. Việc tiếp theo – xếp theo ưu tiên (làm khi có dữ liệu ở mục 4)
 | # | Việc | Cần | Ước lượng |
 |---|---|---|---|
+| P1 | Đọc `carplay_thu_dau_ra`: nếu kiểu dẫn đường/lời nói không nhanh hơn → thử kiểu PlayAndRecord (kênh thoại, trễ thấp nhưng mono/chất kém, cần chủ dự án đồng ý) | mục 4.0 | ngắn |
 | P1 | Phân tích báo cáo 3 máy → chỉnh `profiles.json` (rev+1) cho VF 7 Plus, bù trễ theo máy | mục 4.1 | 1 phiên |
 | P1 | Sửa âm thanh web trên VF7 theo kết quả thử (nếu chỉ Thử 1 nghe → phát bằng chuỗi tệp WAV) | mục 4.3 | ngắn |
 | P1 | Tweak can thiệp CarPlay: ưu tiên PCM / tăng bitrate AAC (có công tắc) **chỉ khi** chẩn đoán cho thấy xe hỗ trợ | mục 4.2 | 1 phiên |

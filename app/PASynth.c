@@ -129,7 +129,7 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     // toc do muc tieu: GPS + du doan theo gia toc (GPS tre ~1 giay)
     double target = 0, accIn = 0;
     if (s->gpsSpeed >= 0 && s->gpsAge < 4) {
-        double ahead = (s->gpsAge < 0.5 ? s->gpsAge : 0.5) + fmin(0.9, fmax(0, s->leadS));
+        double ahead = (s->gpsAge < 0.5 ? s->gpsAge : 0.5) + fmin(1.0, fmax(0, s->leadS));
         target = s->gpsSpeed + s->gpsAccel * ahead;
         accIn = s->gpsAccel;
         if (target < 0) target = 0;
@@ -159,7 +159,13 @@ static void physics(PASynth *s, const PAPreset *p, double dt) {
     double load;
     if (s->speed < 1) load = aMs > 0.3 ? clampd(aReq / aMax, 0.3, 1) : 0.1;   // dung yen / bat dau lan banh
     else if (aMs < -0.6 && aReq < 0.05) load = 0;                              // nha ga, phanh: dong co ghim
-    else load = clampd(aReq / aMax, 0.12, 1);
+    else {
+        double r = aReq / aMax;
+        // Xe dien manh (aMax lon): lai binh thuong chi dung 15-30% do boc -> tieng gan nhu nho ga suot.
+        // Nang doan giua theo duong cong (r^0.65): ga vua da nghe ro, dap het van danh cho tang toc manh.
+        if (s->perfCap > 0.5 && r > 0) r = pow(r, 0.65);
+        load = clampd(r, 0.12, 1);
+    }
     if (s->load > 0.6 && load < 0.1 && s->boost > 0.45) s->bovPending = 1;
     s->load += (load - s->load) * fmin(1, dt * (load > s->load ? 6 : 5));
     if (s->blip > 0) { s->blip -= dt; if (s->load < 0.7) s->load = 0.7; }      // ro ga khi ve so

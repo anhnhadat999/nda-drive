@@ -26,6 +26,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
     PAMotion *_motion;
     BOOL _booted, _routeCarPlay, _tweakCarPlay, _manualRun, _locating;
     BOOL _userOff, _lastCarPlay, _sessionReady, _restarting, _measuring;
+    BOOL _carOutTest;
     BOOL _motionRun; double _movingT, _stillT;   // tu phat hien xe chay
     BOOL _lowPower; double _idleT; CLLocation *_idleAnchor;   // cho tiet kiem pin khi xe do
     double _lastGpsKick, _lastImuKick;
@@ -73,6 +74,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
         _mechanical = [d doubleForKey:@"mech"];
         _collectMode = [d boolForKey:@"collectMode"];
         _latencyComp = [d boolForKey:@"latComp"];
+        _carAudioMode = [d integerForKey:@"carAudioMode"];
         _acousticCorrection = [d boolForKey:@"acousticCorr"];
         _vehicleId = [d stringForKey:@"vehicle"] ?: @"vf7-plus";
         _autoProfile = [d boolForKey:@"autoProfile"];
@@ -152,7 +154,7 @@ static NSString *const kNotifyCarPlayOff = @"com.ndarealty.ndadrive.carplay.off"
 - (void)updateLatency {
     AVAudioSession *as = AVAudioSession.sharedInstance;
     _outputLatencyMs = (as.outputLatency + as.IOBufferDuration) * 1000;
-    _synth.leadS = _latencyComp ? fmin(0.8, _outputLatencyMs / 1000.0) : 0;   // CarPlay khong day tre toi ~1 s
+    _synth.leadS = _latencyComp ? fmin(1.0, _outputLatencyMs / 1000.0) : 0;   // CarPlay khong day tre toi ~1 s
     ((PAMotion *)_motion).audioLatencyMs = _outputLatencyMs;
 }
 - (void)setSubAmount:(double)v { _subAmount = v; [self save:@(v) key:@"subAmt"]; [self applySettings]; }
@@ -268,9 +270,10 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     NSError *err = nil;
     // Phat tron cung nhac (khong lam ngat nhac/Chi duong). Chi cai dat MOT lan:
     // cai lai lien tuc se lam iOS bao "doi cau hinh" -> vong lap -> treo app.
+    NSString *mode = [self desiredSessionMode];
     if (![as.category isEqualToString:AVAudioSessionCategoryPlayback] ||
-        !(as.categoryOptions & AVAudioSessionCategoryOptionMixWithOthers)) {
-        [as setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeDefault
+        !(as.categoryOptions & AVAudioSessionCategoryOptionMixWithOthers) || ![as.mode isEqualToString:mode]) {
+        [as setCategory:AVAudioSessionCategoryPlayback mode:mode
                 options:AVAudioSessionCategoryOptionMixWithOthers error:&err];
     }
     [as setPreferredIOBufferDuration:0.005 error:nil];   // bo dem nho: tieng phan hoi nhanh hon
@@ -278,8 +281,84 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     else NSLog(@"[NDADrive] Khong kich hoat duoc phien am thanh: %@", err);
 }
 
+static NSString *modeFor(NSInteger m) {
+    return m == 1 ? AVAudioSessionModeVoicePrompt : m == 2 ? AVAudioSessionModeSpokenAudio : AVAudioSessionModeDefault;
+}
+- (NSString *)carAudioModeName:(NSInteger)m { return m == 1 ? @"Kiểu dẫn đường" : m == 2 ? @"Kiểu lời nói" : @"Mặc định (nhạc)"; }
+// Chi doi kieu phien khi dang o CarPlay (loa iPhone/Bluetooth giu mac dinh)
+- (NSString *)desiredSessionMode { return (_routeCarPlay && !_carOutTest) ? modeFor(_carAudioMode) : AVAudioSessionModeDefault; }
+
+// Dung lai bo may am thanh tu dau (dinh dang/duong ra co the da doi)
+- (void)rebuildAudio {
+    _sessionReady = NO;
+    if (_audio) {
+        [_audio stop];
+        [NSNotificationCenter.defaultCenter removeObserver:self name:AVAudioEngineConfigurationChangeNotification object:_audio];
+        _audio = nil; _source = nil;
+    }
+    [self startAudio];
+}
+
+- (BOOL)carOutTestRunning { return _carOutTest; }
+
+// Thu tung kieu phien am thanh tren CarPlay, doc do tre ra loa iOS bao. Chon kieu tre thap nhat
+// (phai van ra CarPlay, >= 22 kHz, nhanh hon mac dinh it nhat 120 ms; neu khong giu mac dinh).
+- (void)runCarPlayOutputTest:(void (^)(NSArray<NSDictionary *> *, NSInteger))done {
+    if (_carOutTest || _measuring) { if (done) done(@[], _carAudioMode); return; }
+    if (!_routeCarPlay) { if (done) done(@[], -1); return; }
+    _carOutTest = YES;
+    PALog(@"Kiem tra dau ra CarPlay: bat dau");
+    [_audio stop];
+    NSMutableArray *res = [NSMutableArray array];
+    __block NSInteger idx = 0;
+    __block void (^step)(void);
+    __weak typeof(self) ws = self;
+    step = ^{
+        typeof(self) ss = ws; if (!ss) return;
+        if (idx > 2) {
+            NSDictionary *base = res.firstObject; NSInteger best = 0;
+            double baseLat = [base[@"tre_ms"] doubleValue], bestLat = baseLat;
+            for (NSDictionary *r in res) {
+                double l = [r[@"tre_ms"] doubleValue];
+                if ([r[@"carplay"] boolValue] && [r[@"tan_so_hz"] doubleValue] >= 22000 && l > 0 && l < bestLat && l < baseLat - 120) { bestLat = l; best = [r[@"kieu"] integerValue]; }
+            }
+            ss->_carOutTest = NO;
+            ss->_carAudioMode = best;
+            NSUserDefaults *d = NSUserDefaults.standardUserDefaults;
+            [d setInteger:best forKey:@"carAudioMode"];
+            NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyy-MM-dd HH:mm:ss";
+            [d setObject:@{ @"luc": [df stringFromDate:[NSDate date]], @"ket_qua": res, @"chon": @(best),
+                            @"phien_ban": NSBundle.mainBundle.infoDictionary[@"CFBundleVersion"] ?: @"" } forKey:@"carplay.outTest"];
+            PALog(@"Kiem tra dau ra CarPlay: chon %ld (%.0f ms, mac dinh %.0f ms)", (long)best, bestLat, baseLat);
+            [PADiag.shared bump:@"carplay_out_test"];
+            [ss rebuildAudio];
+            [ss updateLatency];
+            if (done) done(res, best);
+            step = nil;
+            return;
+        }
+        NSInteger m = idx++;
+        AVAudioSession *as = AVAudioSession.sharedInstance;
+        NSError *err = nil;
+        [as setCategory:AVAudioSessionCategoryPlayback mode:modeFor(m) options:AVAudioSessionCategoryOptionMixWithOthers error:&err];
+        [as setPreferredIOBufferDuration:0.005 error:nil];
+        [as setActive:YES error:&err];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.9 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            AVAudioSession *a2 = AVAudioSession.sharedInstance;
+            BOOL car = NO;
+            for (AVAudioSessionPortDescription *o in a2.currentRoute.outputs) if ([o.portType isEqualToString:AVAudioSessionPortCarAudio]) car = YES;
+            double lat = (a2.outputLatency + a2.IOBufferDuration) * 1000;
+            [res addObject:@{ @"kieu": @(m), @"ten": [ws carAudioModeName:m], @"carplay": @(car), @"tre_ms": @(round(lat)),
+                              @"tan_so_hz": @(a2.sampleRate), @"so_kenh": @(a2.outputNumberOfChannels), @"loi": err ? @(err.code) : @0 }];
+            PALog(@"Kiem tra dau ra CarPlay: kieu %ld -> %@ %.0f ms, %.0f Hz, %ld kenh", (long)m, car ? @"CarPlay" : @"KHONG CarPlay", lat, a2.sampleRate, (long)a2.outputNumberOfChannels);
+            if (step) step();
+        });
+    };
+    step();
+}
+
 - (void)startAudio {
-    if (!self.pipelineOn || _measuring) return;   // bo am thanh chay ca khi chi thu thap im lang (giu app song nen); tieng tat qua synth.mute
+    if (!self.pipelineOn || _measuring || _carOutTest) return;   // bo am thanh chay ca khi chi thu thap im lang (giu app song nen); tieng tat qua synth.mute
     [self configureSession];
     if (!_audio) {
         _audio = [AVAudioEngine new];
@@ -384,8 +463,22 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
     NSUInteger reason = [n.userInfo[AVAudioSessionRouteChangeReasonKey] unsignedIntegerValue];
     dispatch_async(dispatch_get_main_queue(), ^{
         [self snapshotRoute:reason];
+        BOOL was = self->_routeCarPlay;
         self->_routeCarPlay = [self routeIsCarPlay];
+        if (self->_carOutTest) return;
+        if (![AVAudioSession.sharedInstance.mode isEqualToString:[self desiredSessionMode]] && self->_audio) [self rebuildAudio];
         [self evaluate];
+        if (self->_routeCarPlay && !was) [self maybeAutoCarOutTest];
+    });
+}
+
+// Lan dau ket noi CarPlay sau moi ban cap nhat: tu kiem tra dau ra (khoang 3 giay, tieng tam ngat)
+- (void)maybeAutoCarOutTest {
+    NSString *ver = NSBundle.mainBundle.infoDictionary[@"CFBundleVersion"] ?: @"";
+    NSDictionary *last = [NSUserDefaults.standardUserDefaults dictionaryForKey:@"carplay.outTest"];
+    if ([last[@"phien_ban"] isEqual:ver] || !self.pipelineOn) return;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        if (self->_routeCarPlay) [self runCarPlayOutputTest:nil];
     });
 }
 
@@ -573,7 +666,7 @@ static void darwinCallback(CFNotificationCenterRef center, void *observer, CFNot
         if ((_lowPower ? (_motion.gpsAge > 300 && now - _lastGpsKick > 300) : (_motion.gpsAge > 6 && now - _lastGpsKick > 10))) {   // cho tiet kiem pin: van kiem tra GPS 5 phut/lan
             _lastGpsKick = now;
             PALog(@"GPS im lang %.0f s -> khoi dong lai", _motion.gpsAge);
-            [PADiag.shared bump:@"gps_restart"];
+            [PADiag.shared bump:_lowPower ? @"gps_check_lowpower" : @"gps_restart"];   // cho tiet kiem pin: kiem tra dinh ky, khong phai loi
             [_lm stopUpdatingLocation];
             _lm.allowsBackgroundLocationUpdates = YES;
             [_lm startUpdatingLocation];

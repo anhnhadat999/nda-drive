@@ -203,6 +203,8 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
         rep[@"ho_so_may_chu"] = profInfo;
         rep[@"thiet_bi_luc_xuat"] = devInfo;
         rep[@"carplay_duong_am_thanh"] = [NSUserDefaults.standardUserDefaults arrayForKey:@"carplay.routes"] ?: @[];
+        rep[@"carplay_thu_dau_ra"] = [NSUserDefaults.standardUserDefaults dictionaryForKey:@"carplay.outTest"] ?: @{};
+        rep[@"carplay_kieu_phat"] = @([NSUserDefaults.standardUserDefaults integerForKey:@"carAudioMode"]);
 
         NSFileManager *fm = NSFileManager.defaultManager;
         NSDateFormatter *df = [NSDateFormatter new]; df.dateFormat = @"yyyyMMdd_HHmmss";

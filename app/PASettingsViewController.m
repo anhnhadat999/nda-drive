@@ -59,7 +59,7 @@
 - (NSInteger)tableView:(UITableView *)tv numberOfRowsInSection:(NSInteger)s {
     switch ([self sec:s]) {
         case SecCar: return 5;
-        case SecSound: return 13;
+        case SecSound: return 14;
         case SecLearn: return 7;
         case SecRun: return 2;
         case SecTest: return 2;
@@ -166,6 +166,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 7) return [self switchCell:@"Hiệu ứng tiếng từ phía sau" icon:@"speaker.wave.2.fill" on:e.rearEffect tag:17];
             if (ip.row == 8) return [self sliderCell:@"Cường độ cảm giác phía sau" value:e.rearAmount max:1 tag:4 detail:[NSString stringWithFormat:@"%.0f%%", e.rearAmount * 100] enabled:e.rearEffect];
             if (ip.row == 9) return [self infoCell:@"Đo âm học khoang xe" detail:(e.acousticCorrection ? @"bù: bật" : nil) icon:@"waveform.and.mic" tappable:YES];
+            if (ip.row == 13) return [self infoCell:@"Kiểm tra đầu ra CarPlay" detail:(e.carOutTestRunning ? @"đang thử…" : [NSString stringWithFormat:@"%@ · trễ %.0f ms", [e carAudioModeName:e.carAudioMode], e.outputLatencyMs]) icon:@"car.fill" tappable:YES];
             if (ip.row == 11) return [self sliderCell:@"Giống ngồi trong xe" value:e.interior max:1 tag:22 detail:[NSString stringWithFormat:@"%.0f%%", e.interior * 100] enabled:YES];
             if (ip.row == 12) return [self sliderCell:@"Tiếng cơ khí (máy)" value:e.mechanical max:1 tag:23 detail:[NSString stringWithFormat:@"%.0f%%", e.mechanical * 100] enabled:YES];
             return [self sliderCell:@"Rung sub gầm ghế" value:e.subAmount max:1 tag:5 detail:[NSString stringWithFormat:@"%.0f%%", e.subAmount * 100] enabled:YES];
@@ -210,6 +211,30 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     return [self baseCell];
 }
 
+// Thu cac kieu phat tren CarPlay, bao do tre tung kieu va kieu duoc chon
+- (void)carOutTest {
+    PAEngine *e = PAEngine.shared;
+    if (!e.carPlayConnected) {
+        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Chưa kết nối CarPlay" message:@"Hãy kết nối CarPlay rồi thử lại. Tiếng sẽ ngắt khoảng 3 giây trong lúc thử." preferredStyle:UIAlertControllerStyleAlert];
+        [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [self presentViewController:a animated:YES completion:nil];
+        return;
+    }
+    [self.tableView reloadData];
+    __weak typeof(self) ws = self;
+    [e runCarPlayOutputTest:^(NSArray<NSDictionary *> *res, NSInteger chosen) {
+        NSMutableString *msg = [NSMutableString string];
+        for (NSDictionary *r in res)
+            [msg appendFormat:@"%@: %@ ms, %.0f kHz%@\n", r[@"ten"], r[@"tre_ms"], [r[@"tan_so_hz"] doubleValue] / 1000, [r[@"carplay"] boolValue] ? @"" : @" (không ra CarPlay)"];
+        [msg appendFormat:@"\nĐã chọn: %@", chosen >= 0 ? [e carAudioModeName:chosen] : @"—"];
+        if (chosen == 0) [msg appendString:@" (các kiểu khác không nhanh hơn rõ rệt; app tự bù trễ bằng dự đoán)"];
+        UIAlertController *a = [UIAlertController alertControllerWithTitle:@"Đầu ra CarPlay" message:msg preferredStyle:UIAlertControllerStyleAlert];
+        [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+        [ws presentViewController:a animated:YES completion:nil];
+        [ws.tableView reloadData];
+    }];
+}
+
 - (void)tableView:(UITableView *)tv didSelectRowAtIndexPath:(NSIndexPath *)ip {
     [tv deselectRowAtIndexPath:ip animated:YES];
     if ([self sec:ip.section] == SecCar && ip.row == 4) { [self askRealism]; return; }
@@ -220,6 +245,8 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
     if ([self sec:ip.section] == SecStatus && ip.row == 0) {
         [PAEngine.shared requestLocationPermission];
         [UIApplication.sharedApplication openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString] options:@{} completionHandler:nil];
+    } else if ([self sec:ip.section] == SecSound && ip.row == 13) {
+        [self carOutTest]; return;
     } else if ([self sec:ip.section] == SecSound && ip.row == 9) {
         [self.navigationController pushViewController:[PAAcousticViewController new] animated:YES];
     } else if ([self sec:ip.section] == SecLearn && ip.row == 3) {

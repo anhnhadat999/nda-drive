@@ -26,12 +26,14 @@
     // Cam bien
     if (m.imuHz > 50) add(@"Cảm biến", [NSString stringWithFormat:@"%.0f lần/giây", m.imuHz], 0);
     else if (m.imuHz > 5) add(@"Cảm biến", [NSString stringWithFormat:@"chậm (%.0f/giây)", m.imuHz], 1);
+    else if (!e.engineOn || e.lowPowerIdle) add(@"Cảm biến", @"đang nghỉ (xe đỗ / chưa nổ máy)", 0);
     else add(@"Cảm biến", @"chưa có dữ liệu", 2);
 
     // GPS
     double acc = m.gpsHAcc;   // do chinh xac vi tri (m)
     if (m.gpsHz >= 0.8 && acc > 0 && acc < 15) add(@"GPS", [NSString stringWithFormat:@"tốt (±%.0f m)", acc], 0);
     else if (m.gpsHz >= 0.5 && acc > 0 && acc < 35) add(@"GPS", [NSString stringWithFormat:@"trung bình (±%.0f m)", acc], 1);
+    else if (!e.engineOn || e.lowPowerIdle) add(@"GPS", @"đang nghỉ (xe đỗ / chưa nổ máy)", 0);
     else add(@"GPS", @"yếu / chưa bắt được", 2);
 
     // GPS lap (xe gui qua CarPlay)
