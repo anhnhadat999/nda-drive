@@ -1,0 +1,271 @@
+{
+ "rev": 1,
+ "updated": "2026-11-11",
+ "vehicles": [
+  {
+   "id": "vf3",
+   "model": "VF 3",
+   "trim": "Tiêu chuẩn (1 mô-tơ, RWD)",
+   "hp": 43,
+   "kw": 32,
+   "nm": 110,
+   "drive": "RWD",
+   "kg": 1190,
+   "t100": 14.0,
+   "est": true,
+   "preset": "i4t"
+  },
+  {
+   "id": "vf5",
+   "model": "VF 5",
+   "trim": "Plus (1 mô-tơ, FWD)",
+   "hp": 134,
+   "kw": 100,
+   "nm": 135,
+   "drive": "FWD",
+   "kg": 1360,
+   "t100": 10.9,
+   "est": true,
+   "preset": "i4t"
+  },
+  {
+   "id": "vfe34",
+   "model": "VF e34",
+   "trim": "Tiêu chuẩn (1 mô-tơ, FWD)",
+   "hp": 147,
+   "kw": 110,
+   "nm": 242,
+   "drive": "FWD",
+   "kg": 1490,
+   "t100": 9.0,
+   "est": true,
+   "preset": "i5"
+  },
+  {
+   "id": "vf6-eco",
+   "model": "VF 6",
+   "trim": "Eco (1 mô-tơ, FWD)",
+   "hp": 174,
+   "kw": 130,
+   "nm": 250,
+   "drive": "FWD",
+   "kg": 1960,
+   "t100": 9.5,
+   "est": true,
+   "preset": "i5"
+  },
+  {
+   "id": "vf6-plus",
+   "model": "VF 6",
+   "trim": "Plus (1 mô-tơ, FWD)",
+   "hp": 201,
+   "kw": 150,
+   "nm": 310,
+   "drive": "FWD",
+   "kg": 2020,
+   "t100": 8.9,
+   "est": true,
+   "preset": "i6"
+  },
+  {
+   "id": "vf7-eco",
+   "model": "VF 7",
+   "trim": "Eco (1 mô-tơ, FWD)",
+   "hp": 201,
+   "kw": 150,
+   "nm": 310,
+   "drive": "FWD",
+   "kg": 2085,
+   "t100": 9.5,
+   "est": false,
+   "preset": "i6"
+  },
+  {
+   "id": "vf7-plus",
+   "model": "VF 7",
+   "trim": "Plus (2 mô-tơ, AWD)",
+   "hp": 349,
+   "kw": 260,
+   "nm": 500,
+   "drive": "AWD",
+   "kg": 2205,
+   "t100": 5.8,
+   "est": false,
+   "preset": "amg"
+  },
+  {
+   "id": "vf8-eco",
+   "model": "VF 8",
+   "trim": "Eco (2 mô-tơ, AWD)",
+   "hp": 349,
+   "kw": 260,
+   "nm": 500,
+   "drive": "AWD",
+   "kg": 2460,
+   "t100": 5.9,
+   "est": true,
+   "preset": "amg"
+  },
+  {
+   "id": "vf8-plus",
+   "model": "VF 8",
+   "trim": "Plus (2 mô-tơ, AWD)",
+   "hp": 402,
+   "kw": 300,
+   "nm": 620,
+   "drive": "AWD",
+   "kg": 2600,
+   "t100": 5.5,
+   "est": false,
+   "preset": "v8"
+  },
+  {
+   "id": "vf9-eco",
+   "model": "VF 9",
+   "trim": "Eco (2 mô-tơ, AWD)",
+   "hp": 402,
+   "kw": 300,
+   "nm": 620,
+   "drive": "AWD",
+   "kg": 2830,
+   "t100": 6.5,
+   "est": false,
+   "preset": "v8"
+  },
+  {
+   "id": "vf9-plus",
+   "model": "VF 9",
+   "trim": "Plus (2 mô-tơ, AWD)",
+   "hp": 402,
+   "kw": 300,
+   "nm": 620,
+   "drive": "AWD",
+   "kg": 2900,
+   "t100": 6.5,
+   "est": true,
+   "preset": "v12"
+  }
+ ],
+ "tuning": {
+  "default": {
+   "rev": 1,
+   "growl": 0.55,
+   "crisp": 0.55,
+   "interior": 0.4,
+   "mech": 0.3,
+   "sub": 0.55,
+   "tone": 0.5,
+   "note": ""
+  },
+  "vf3": {
+   "rev": 1,
+   "growl": 0.35,
+   "crisp": 0.5,
+   "interior": 0.45,
+   "mech": 0.25,
+   "sub": 0.4,
+   "tone": 0.45,
+   "note": "xe nhỏ, nhẹ: tiếng gọn, ít gằn"
+  },
+  "vf5": {
+   "rev": 1,
+   "growl": 0.45,
+   "crisp": 0.55,
+   "interior": 0.42,
+   "mech": 0.28,
+   "sub": 0.5,
+   "tone": 0.5,
+   "note": ""
+  },
+  "vfe34": {
+   "rev": 1,
+   "growl": 0.5,
+   "crisp": 0.55,
+   "interior": 0.42,
+   "mech": 0.3,
+   "sub": 0.5,
+   "tone": 0.5,
+   "note": ""
+  },
+  "vf6-eco": {
+   "rev": 1,
+   "growl": 0.5,
+   "crisp": 0.55,
+   "interior": 0.4,
+   "mech": 0.3,
+   "sub": 0.55,
+   "tone": 0.5,
+   "note": ""
+  },
+  "vf6-plus": {
+   "rev": 1,
+   "growl": 0.55,
+   "crisp": 0.58,
+   "interior": 0.4,
+   "mech": 0.3,
+   "sub": 0.55,
+   "tone": 0.5,
+   "note": ""
+  },
+  "vf7-eco": {
+   "rev": 1,
+   "growl": 0.55,
+   "crisp": 0.58,
+   "interior": 0.4,
+   "mech": 0.3,
+   "sub": 0.55,
+   "tone": 0.5,
+   "note": ""
+  },
+  "vf7-plus": {
+   "rev": 1,
+   "growl": 0.62,
+   "crisp": 0.62,
+   "interior": 0.4,
+   "mech": 0.3,
+   "sub": 0.6,
+   "tone": 0.55,
+   "note": "theo dữ liệu chạy thử 11/2026"
+  },
+  "vf8-eco": {
+   "rev": 1,
+   "growl": 0.65,
+   "crisp": 0.6,
+   "interior": 0.42,
+   "mech": 0.3,
+   "sub": 0.62,
+   "tone": 0.5,
+   "note": ""
+  },
+  "vf8-plus": {
+   "rev": 1,
+   "growl": 0.7,
+   "crisp": 0.62,
+   "interior": 0.42,
+   "mech": 0.3,
+   "sub": 0.65,
+   "tone": 0.5,
+   "note": ""
+  },
+  "vf9-eco": {
+   "rev": 1,
+   "growl": 0.68,
+   "crisp": 0.55,
+   "interior": 0.45,
+   "mech": 0.28,
+   "sub": 0.68,
+   "tone": 0.45,
+   "note": "SUV lớn: dày, trầm"
+  },
+  "vf9-plus": {
+   "rev": 1,
+   "growl": 0.72,
+   "crisp": 0.55,
+   "interior": 0.45,
+   "mech": 0.28,
+   "sub": 0.7,
+   "tone": 0.45,
+   "note": ""
+  }
+ }
+}
