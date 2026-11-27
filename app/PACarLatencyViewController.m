@@ -144,7 +144,7 @@
     for (NSString *k in [tw.allKeys sortedArrayUsingSelector:@selector(compare:)]) [s appendFormat:@"  %@: %@\n", k, tw[k]];
     NSArray *lines = sig[@"tom_tat"];
     if (lines.count) for (NSString *l in lines) [s appendFormat:@"• %@\n", l];
-    else [s appendString:@"• Chưa có tín hiệu. Khởi động lại iPhone (chạy lại jailbreak) rồi kết nối CarPlay và phát tiếng.\n"];
+    else [s appendString:@"• Chưa có tín hiệu. Bật \"Chẩn đoán CarPlay (tweak)\" trong Cài đặt, khởi động lại iPhone (chạy lại jailbreak), rồi kết nối CarPlay và phát tiếng.\n"];
     _sig.text = s;
 }
 

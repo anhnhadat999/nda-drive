@@ -365,9 +365,27 @@ static OSStatus h_ACSet(AudioConverterRef ref, AudioConverterPropertyID pid, UIn
 
 %ctor {
     @autoreleasepool {
+        // AN TOAN (1.8.7): mac dinh TAT – chi chay khi nguoi dung bat trong app (tep carplay-diag.on).
+        // Khong bao gio nap vao mediaserverd/audiomxd (tien trinh am thanh can de khoi dong may: 1.8.6 lam treo tao).
         struct stat s;
-        if (stat("/var/jb/var/mobile/Library/NDADrive/carplay-diag.off", &s) == 0) return;   // nguoi dung tat chan doan
+        if (stat("/var/jb/var/mobile/Library/NDADrive/carplay-diag.off", &s) == 0) return;
+        if (stat("/var/jb/var/mobile/Library/NDADrive/carplay-diag.on", &s) != 0) return;
         gProc = getprogname() ?: "?";
+        if (strcmp(gProc, "airplayd") && strcmp(gProc, "carkitd")) return;
+        // Chong van lap: tien trinh khoi dong >=3 lan trong 3 phut -> khong moc gi nua (den lan khoi dong may sau)
+        {
+            char bn[96]; snprintf(bn, sizeof bn, NDACS_PREFIX "boot.%s", gProc);
+            int tok = 0; uint64_t v = 0, now = (uint64_t)time(NULL);
+            if (notify_register_check(bn, &tok) == NOTIFY_STATUS_OK) {
+                notify_get_state(tok, &v);
+                uint64_t t0 = v >> 8, cnt = v & 0xFF;
+                if (t0 == 0 || now - t0 > 180) { t0 = now; cnt = 0; }
+                cnt++;
+                notify_set_state(tok, (t0 << 8) | (cnt > 255 ? 255 : cnt));
+                notify_cancel(tok);
+                if (cnt >= 3) return;
+            }
+        }
         gIsAudioDaemon = !strcmp(gProc, "mediaserverd") || !strcmp(gProc, "audiomxd");
         gQ = dispatch_queue_create("com.ndarealty.carplaydiag", DISPATCH_QUEUE_SERIAL);
         gLog = os_log_create("com.ndarealty.carplaydiag", "diag");

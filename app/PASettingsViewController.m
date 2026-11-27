@@ -194,7 +194,7 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
             if (ip.row == 0) return [self infoCell:@"Vị trí" detail:e.locationStatusText icon:@"location.fill" tappable:YES];
             if (ip.row == 1) return [self infoCell:@"Căn chỉnh cảm biến" detail:e.sensorStatusText icon:@"gyroscope" tappable:YES];
             if (ip.row == 3) return [self infoCell:@"Phân tích đồng bộ tiếng – xe" detail:nil icon:@"waveform.path.ecg" tappable:YES];
-            if (ip.row == 5) return [self switchCell:@"Chẩn đoán CarPlay (tweak)" icon:@"waveform.badge.magnifyingglass" on:![NSFileManager.defaultManager fileExistsAtPath:@"/var/jb/var/mobile/Library/NDADrive/carplay-diag.off"] tag:26];
+            if (ip.row == 5) return [self switchCell:@"Chẩn đoán CarPlay (tweak)" icon:@"waveform.badge.magnifyingglass" on:[NSFileManager.defaultManager fileExistsAtPath:@"/var/jb/var/mobile/Library/NDADrive/carplay-diag.on"] tag:26];
             if (ip.row == 4) return [self infoCell:@"Xuất TOÀN BỘ dữ liệu (7 ngày)" detail:[NSString stringWithFormat:@"%ld chuyến", (long)[PATrial totalTrips]] icon:@"externaldrive.fill" tappable:YES];
             return [self infoCell:@"Xuất báo cáo cho Claude" detail:@"1 tệp .zip" icon:@"doc.zipper" tappable:YES];
         case SecUpdate:
@@ -292,10 +292,12 @@ static NSString *toneText(double t) { return t < 0.34 ? @"Êm" : (t < 0.67 ? @"V
         case 18: e.learnEnabled = s.on; break;
         case 25: e.autoProfile = s.on; break;
         case 26: {
-            NSString *flag = @"/var/jb/var/mobile/Library/NDADrive/carplay-diag.off";
-            [NSFileManager.defaultManager createDirectoryAtPath:flag.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:nil];
-            if (s.on) [NSFileManager.defaultManager removeItemAtPath:flag error:nil];
-            else [[NSData data] writeToFile:flag atomically:YES];
+            // Mac dinh TAT (tweak chi chay khi co tep .on); tep .off cu luon bi xoa de khong chan nham
+            NSString *dir = @"/var/jb/var/mobile/Library/NDADrive", *on = [dir stringByAppendingPathComponent:@"carplay-diag.on"];
+            [NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:nil error:nil];
+            [NSFileManager.defaultManager removeItemAtPath:[dir stringByAppendingPathComponent:@"carplay-diag.off"] error:nil];
+            if (s.on) [[NSData data] writeToFile:on atomically:YES];
+            else [NSFileManager.defaultManager removeItemAtPath:on error:nil];
             UIAlertController *a = [UIAlertController alertControllerWithTitle:s.on ? @"Đã bật chẩn đoán CarPlay" : @"Đã tắt chẩn đoán CarPlay"
                 message:@"Có hiệu lực sau khi khởi động lại iPhone (hoặc bấm Userspace Reboot trong Dopamine)." preferredStyle:UIAlertControllerStyleAlert];
             [a addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleCancel handler:nil]];

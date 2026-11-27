@@ -3,7 +3,7 @@
 ## 1. Đang ở đâu
 | Nền tảng | Phiên bản | Tải về |
 |---|---|---|
-| iPhone 12 (iOS 15.1.1, Dopamine rootless) | **1.8.6** (build 33) | release `latest` → `com.ndarealty.ndadrive_X_iphoneos-arm64.deb`; nguồn Sileo `https://raw.githubusercontent.com/anhnhadat999/nda-drive/gh-pages/` |
+| iPhone 12 (iOS 15.1.1, Dopamine rootless) | **1.8.7** (build 34) | release `latest` → `com.ndarealty.ndadrive_X_iphoneos-arm64.deb`; nguồn Sileo `https://raw.githubusercontent.com/anhnhadat999/nda-drive/gh-pages/` |
 | Android (Samsung A7) | **0.7.5** (code 12) | release `android-latest` → `NDADrive-android-X.apk` |
 | Web (iPhone/Android/màn hình VF7) | **1.8.7-web** | https://anhnhadat999.github.io/nda-drive/drive.html |
 | Xe | VinFast VF 7 Plus 349 HP, 2.205 kg, 0–100 5,8 s, **CarPlay không dây** | |
@@ -27,6 +27,7 @@
 - `-ffast-math` (Android) xoá mất `isfinite` → luôn kèm `-fno-finite-math-only`. Chú thích `//` trên cùng dòng `{ … }` trong gradle nuốt dấu ngoặc.
 - Một bản tin GPS NaN từng làm hỏng Kalman vĩnh viễn (đã chặn). GPS lặp số cũ không được coi là mất sóng (≤6 lần).
 - Web: Safari chỉ cho bật âm thanh **ngay trong lúc chạm** + nút Im lặng tắt Web Audio (dùng `navigator.audioSession='playback'` + tệp im lặng). Dùng `performance.now()` cho cả cảm biến và GPS (không dùng `event.timeStamp`). Lưu tạm chuyến mỗi 15 s (trình duyệt xe hay tải lại trang).
+- **Tweak trong mediaserverd/audiomxd làm treo táo** (1.8.6). Chỉ nạp airplayd/carkitd, mặc định TẮT (tệp `carplay-diag.on`), tự ngắt khi văng ≥3 lần/3 phút.
 - Lệnh shell có heredoc chứa chữ giống `rm` có thể bị chặn → viết tệp bằng công cụ Write.
 
 ## 4. Đang chờ chủ dự án gửi

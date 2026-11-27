@@ -1,1 +1,1 @@
-{ Filter = { Executables = ( "airplayd", "carkitd", "mediaserverd", "audiomxd" ); }; }
+{ Filter = { Executables = ( "airplayd", "carkitd" ); }; }

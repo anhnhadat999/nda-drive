@@ -238,7 +238,7 @@ static NSString *deviceModel(void) { struct utsname u; uname(&u); return @(u.mac
                 }
             }
             rep[@"carplay_chan_doan_tep"] = found;
-            rep[@"carplay_chan_doan_tat"] = @([fm fileExistsAtPath:@"/var/jb/var/mobile/Library/NDADrive/carplay-diag.off"]);
+            rep[@"carplay_chan_doan_tat"] = @(![fm fileExistsAtPath:@"/var/jb/var/mobile/Library/NDADrive/carplay-diag.on"]);
             NSData *js2 = [NSJSONSerialization dataWithJSONObject:rep options:NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys error:nil];
             [js2 writeToURL:[dir URLByAppendingPathComponent:@"bao-cao.json"] atomically:YES];
         }
